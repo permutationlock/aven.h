@@ -1,72 +1,88 @@
 #ifndef AVEN_H
 #define AVEN_H
 
+#include <iso646.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
+#include <string.h>
+
+// Inspired by and/or copied from Chris Wellons (https://nullprogram.com)
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 
-#define assert(c) while (!(c)) { __builtin_unreachable(); }
+#ifndef __has_attribute
+    #define __has_attribute(unused) 0
+#endif
+
+#ifndef __has_builtin
+    #define __has_builtin(unused) 0
+#endif
+
+#if defined(__GNUC__) and __has_builtin(__builtin_unreachable)
+    #ifndef NDEBUG
+        #define assert(c) while (!(c)) { __builtin_unreachable(); }
+    #else
+        #define assert(unused) ((void)0)
+    #endif
+#else
+    #include <assert.h>
+#endif
 
 #define countof(array) (sizeof(array) / sizeof(*array))
 
-#define result(t) struct { t payload; int32_t error; }
-#define slice(t) struct { t *ptr; size_t len; }
+#if __STDC_VERSION__ >= 201112L
+    #include <stdnoreturn.h>
+#elif __STDC_VERSION__ >= 199901L
+    #ifndef __BIGGEST_ALIGNMENT__
+        #error "__BIGGEST_ALIGNMENT__ must be the max required alignment"
+    #endif
+    #define arena_alignof(t) __BIGGEST_ALIGNMENT__
+    #define noreturn
+#else
+    #error "C99 or later is required"
+#endif
 
-#define slice_get(s, i) (s.ptr[i + aven_verify_index_internal(i, s.len)])
+#define Optional(t) struct { t value; bool valid; }
+#define Result(t) struct { t payload; int error; }
+#define Slice(t) struct { t *ptr; size_t len; }
 
-typedef slice(int8_t) int8_slice_t;
-typedef slice(uint8_t) uint8_slice_t;
-typedef slice(int16_t) int16_slice_t;
-typedef slice(uint16_t) uint16_slice_t;
-typedef slice(int32_t) int32_slice_t;
-typedef slice(uint32_t) uint32_slice_t;
-typedef slice(int64_t) int64_slice_t;
-typedef slice(uint64_t) uint64_slice_t;
+typedef Slice(unsigned char) ByteSlice;
 
-typedef char *cstring_t;
-typedef slice(cstring_t) cstring_slice_t;
+#ifndef NDEBUG
+    static inline size_t aven_assert_lt_internal_fn(size_t a, size_t b) {
+        assert(a < b);
+        return a;
+    }
 
-typedef slice(unsigned char) byte_slice_t;
+    #define aven_assert_lt_internal(a, b) aven_assert_lt_internal_fn(a, b)
+#else
+    #define aven_assert_lt_internal(a, b) a
+#endif
 
-#define as_bytes(ptr) ((byte_slice_t){ \
+#define slice_get(s, i) s.ptr[aven_assert_lt_internal(i, s.len)]
+
+#define as_bytes(ptr) (ByteSlice){ \
         .ptr = (unsigned char *)ptr, \
-        .len = sizeof(*ptr)\
-    })
-#define array_as_bytes(ptr) ((byte_slice_t){ \
+        .len = sizeof(*ptr) \
+    }
+#define array_as_bytes(ptr) (ByteSlice){ \
         .ptr = (unsigned char *)ptr, \
         .len = sizeof(ptr)\
-    })
-#define cstring_as_bytes(cstr) ((byte_slice_t){ \
-        .ptr = (unsigned char *)cstr, \
-        .len = sizeof(cstr) - 1 \
-    })
-
-static size_t aven_verify_index_internal(size_t index, size_t len) {
-    assert(index >= 0 && index < len);
-    return 0;
-}
-
-#ifdef __GNUC__
-__attribute((malloc, alloc_size(2), alloc_align(3)))
-#endif
-void *aven_alloc(byte_slice_t *arena, size_t size, size_t align);
-
-#ifdef AVEN_H_IMPLEMENTATION
-
-void *aven_alloc(byte_slice_t *arena, size_t size, size_t align) {
-    size_t padding = -(size_t)arena->ptr & (align - 1);
-    if (size > (arena->len - padding)) {
-        return 0;
     }
-    unsigned char *p = arena->ptr + padding;
-    arena->ptr += padding + size;
-    arena->len -= padding + size;
-    return p;
-}
+#define slice_as_bytes(s) (ByteSlice){ \
+        .ptr = (unsigned char *)s.ptr, \
+        .len = s.len * sizeof(*s.ptr), \
+    }
 
-#endif // AVEN_H_IMPLEMENTATION
+#define slice_copy(d, s) memcpy( \
+        d.ptr, \
+        s.ptr, \
+        aven_assert_lt_internal( \
+            s.len * sizeof(*s.ptr), \
+            d.len * sizeof(*d.ptr) + 1 \
+        ) \
+    )
 
 #endif // AVEN_H
