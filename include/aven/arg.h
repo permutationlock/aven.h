@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "aven.h"
+#include <aven.h>
 
 typedef enum {
     AVEN_ARG_TYPE_BOOL = 0,

@@ -1,6 +1,8 @@
 #ifndef AVEN_WATCh_H
 #define AVEN_WATCh_H
 
+#include <aven.h>
+
 #ifdef _WIN32
     typedef void *AvenWatchHandle;
 

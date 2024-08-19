@@ -1,4 +1,5 @@
-#include "aven_arena.h"
+#include <aven.h>
+#include <aven/arena.h>
 
 void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align) {
     assert(

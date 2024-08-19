@@ -3,8 +3,8 @@
 
 #include <string.h>
 
-#include "aven.h"
-#include "aven_arena.h"
+#include <aven.h>
+#include "arena.h"
 
 typedef Slice(char) AvenString;
 typedef Result(AvenString) AvenStringResult;

@@ -20,7 +20,7 @@
     #define __has_builtin(unused) 0
 #endif
 
-#if defined(__GNUC__) and __has_builtin(__builtin_unreachable)
+#if defined(AVEN_UNREACHABLE_ASSERT) and __has_builtin(__builtin_unreachable)
     #ifndef NDEBUG
         #define assert(c) while (!(c)) { __builtin_unreachable(); }
     #else

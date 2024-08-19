@@ -3,8 +3,9 @@
 
 #include <stdio.h>
 
-#include "aven.h"
-#include "aven_string.h"
+#include <aven.h>
+#include "arena.h"
+#include "string.h"
 
 #ifdef _WIN32
     //typedef void *AvenBuildFD;
@@ -434,7 +435,7 @@ static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
 #else
             int error = mkdir(
                 step->out_path.value.ptr,
-                S_IFDIR | S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+                0755
             );
 #endif
             if (error != 0) {

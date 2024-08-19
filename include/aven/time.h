@@ -1,7 +1,7 @@
 #ifndef AVEN_TIME_H
 #define AVEN_TIME_H
 
-#include "aven.h"
+#include <aven.h>
 
 #if _POSIX_C_SOURCE < 199309L
     #error "requires _POSIX_C_SOURCE >= 199309L"

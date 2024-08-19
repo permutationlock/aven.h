@@ -1,7 +1,7 @@
 #ifndef AVEN_ARENA_H
 #define AVEN_ARENA_H
 
-#include "aven.h"
+#include <aven.h>
 
 #if __STDC_VERSION__ >= 201112L
     #include <stdalign.h>
