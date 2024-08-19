@@ -72,11 +72,20 @@ AvenArg build_args[] = {
             .data = { .arg_string = "-o" },
         },
     },
+#ifdef _WIN32
     {
-        .name = "-windows",
-        .description = "Add windows \'.exe\' and \'.dll\' extensions",
+        .name = "-posix",
+        .description = "Use empty exe extension, \'.so\' shared lib extension",
         .type = AVEN_ARG_TYPE_BOOL,
     },
+#else
+    {
+        .name = "-windows",
+        .description =
+            "Use \'.exe\' exe extension, \'.dll\' shared lib extension",
+        .type = AVEN_ARG_TYPE_BOOL,
+    },
+#endif
     {
         .name = "-clean",
         .description = "Remove all build artifacts",
@@ -238,7 +247,11 @@ int main(int argc, char **argv) {
         ldopts.flags = result.payload;
     }
 
+#ifdef _WIN32
+    bool windows_build = !aven_arg_get_bool(arg_slice, "-posix");
+#else
     bool windows_build = aven_arg_get_bool(arg_slice, "-windows");
+#endif
 
     char *build_dir = "build_temp";
     char *out_dir = "build_out";

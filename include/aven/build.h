@@ -200,7 +200,7 @@ static AvenBuildPIDResult aven_build_cmd_run(
         &startup_info,
         &process_info
     );
-    if (success != 0) {
+    if (success == 0) {
         return (AvenBuildPIDResult){ .error = AVEN_BUILD_CMD_ERROR_FORK };
     }
 
