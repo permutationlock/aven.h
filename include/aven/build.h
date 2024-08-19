@@ -1,6 +1,7 @@
 #ifndef AVEN_BUILD_H
 #define AVEN_BUILD_H
 
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -72,7 +73,9 @@
         WinProcessInfo *process_info
     );
 
-    #define WIN_INFINITE 0xffffffff
+    #ifndef WIN_INFINITE
+        #define WIN_INFINITE 0xffffffff
+    #endif
 
     uint32_t WaitForSingleObject(void *handle, uint32_t timeout_ms);
 
@@ -466,7 +469,6 @@ static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
             if (!step->out_path.valid) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
-            printf("mkdir %s\n", step->out_path.value);
 #ifdef _WIN32
             int error = _mkdir(step->out_path.value);
 #else
@@ -475,8 +477,11 @@ static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
                 0755
             );
 #endif
-            if (error != 0) {
+            if (error != 0 && errno != EEXIST) {
                 return AVEN_BUILD_STEP_RUN_ERROR_MKDIR;
+            }
+            if (error == 0) {
+                printf("mkdir %s\n", step->out_path.value);
             }
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
@@ -496,6 +501,14 @@ static void aven_build_step_clean(AvenBuildStep *step) {
 
     for (AvenBuildStepNode *dep = step->dep; dep != NULL; dep = dep->next) {
         aven_build_step_clean(dep->step);
+    }
+}
+
+static void aven_build_step_reset(AvenBuildStep *step) {
+    step->state = AVEN_BUILD_STEP_STATE_NONE;
+
+    for (AvenBuildStepNode *dep = step->dep; dep != NULL; dep = dep->next) {
+        aven_build_step_reset(dep->step);
     }
 }
 

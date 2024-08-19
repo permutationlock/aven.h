@@ -5,6 +5,7 @@
 #include <aven.h>
 #include <aven/arg.h>
 #include <aven/build.h>
+#include <aven/watch.h>
 
 AvenArg build_args[] = {
     {
@@ -79,6 +80,11 @@ AvenArg build_args[] = {
     {
         .name = "-clean",
         .description = "Remove all build artifacts",
+        .type = AVEN_ARG_TYPE_BOOL,
+    },
+    {
+        .name = "-watch",
+        .description = "Automatically e-build on changes to src/",
         .type = AVEN_ARG_TYPE_BOOL,
     },
 };
@@ -298,9 +304,24 @@ int main(int argc, char **argv) {
     }
 
     bool clean = aven_arg_get_bool(arg_slice, "-clean");
+    bool watch = aven_arg_get_bool(arg_slice, "-watch");
 
-    aven_build_step_clean(&link_exe_step);
-    if (!clean) {
+    if (clean) {
+        aven_build_step_clean(&link_exe_step);
+    } else if (watch) {
+        AvenWatchHandle src_handle = aven_watch_init(src_dir);
+        for (;;) {
+            error = aven_build_step_run(&link_exe_step, arena);
+            if (error != 0) {
+                printf("BUILD ERROR: %d\n", error);
+            }
+            aven_build_step_reset(&link_exe_step);
+            aven_watch_check(src_handle, -1);
+            while (aven_watch_check(src_handle, 100)) {}
+            printf("\nRE-BUILDING:\n");
+        }
+        aven_watch_deinit(src_handle);
+    } else {
         error = aven_build_step_run(&link_exe_step, arena);
         if (error != 0) {
             return error;

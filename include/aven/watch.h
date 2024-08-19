@@ -6,6 +6,10 @@
 #ifdef _WIN32
     typedef void *AvenWatchHandle;
 
+    #ifndef WIN_INFINITE
+        #define WIN_INFINITE 0xffffffff
+    #endif
+
     #define AVEN_WATCH_INVALID_HANDLE ((AvenWatchHandle)-1L)
 
     AvenWatchHandle FindFirstChangeNotificationA(
@@ -15,12 +19,7 @@
     );
     int FindNextChangeNotification(AvenWatchHandle handle);
     int FindCloseChangeNotification(AvenWatchHandle handle);
-    uint32_t WaitForMultipleObjects(
-        uint32_t ncount,
-        const AvenWatchHandle *handles,
-        int waith_all,
-        uint32_t wait_milliseconds
-    );
+    uint32_t WaitForSingleObject(AvenWatchHandle handle, uint32_t timeout_ms);
 
     AvenWatchHandle aven_watch_init(const char *dirname) {
         char buffer[1024];
@@ -33,11 +32,15 @@
             }
         }
         buffer[i] = '\0';
-        return FindFirstChangeNotificationA(buffer, 0, 1);
+        return FindFirstChangeNotificationA(buffer, 0, 0x1 | 0x2 | 0x8 | 0x10);
     }
 
-    bool aven_watch_check(AvenWatchHandle handle) {
-        uint32_t result = WaitForMultipleObjects(1, &handle, 0, 0);
+    bool aven_watch_check(AvenWatchHandle handle, int timeout) {
+        uint32_t win_timeout = (uint32_t)timeout;
+        if (timeout < 0) {
+            win_timeout = WIN_INFINITE;
+        }
+        uint32_t result = WaitForSingleObject(handle, win_timeout);
 
         int success = FindNextChangeNotification(handle);
         assert(success != 0);
@@ -67,7 +70,7 @@
         int result = inotify_add_watch(
             handle,
             dirname, 
-            IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO
+            IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY
         );
         if (result <= 0) {
             return AVEN_WATCH_INVALID_HANDLE;
@@ -76,9 +79,9 @@
         return handle;
     }
 
-    bool aven_watch_check(AvenWatchHandle handle) {
+    bool aven_watch_check(AvenWatchHandle handle, int timeout) {
         struct pollfd pfd = { .fd = handle, .events = POLLIN };
-        int nevents = poll(&pfd, 1, 0);
+        int nevents = poll(&pfd, 1, timeout);
         assert(nevents >= 0);
         if (nevents <= 0) {
             return false;
