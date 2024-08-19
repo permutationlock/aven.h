@@ -72,6 +72,11 @@ AvenArg build_args[] = {
         },
     },
     {
+        .name = "-windows",
+        .description = "Add windows \'.exe\' and \'.dll\' extensions",
+        .type = AVEN_ARG_TYPE_BOOL,
+    },
+    {
         .name = "-clean",
         .description = "Remove all build artifacts",
         .type = AVEN_ARG_TYPE_BOOL,
@@ -79,20 +84,20 @@ AvenArg build_args[] = {
 };
 
 typedef struct {
-    AvenString compiler;
-    AvenStringSlice flags;
-    AvenString objflag;
-    AvenString outflag;
+    char *compiler;
+    char *objflag;
+    char *outflag;
+    AvenStrSlice flags;
 } COpts;
 
-AvenBuildStep cc_compile_object(
+AvenBuildStep cc_compile_obj(
     COpts *copts,
-    AvenString src_path,
-    AvenString target_path,
+    char *src_path,
+    char *target_path,
     AvenArena *arena
 ) {
-    AvenStringSlice cmd_slice = { .len = copts->flags.len + 5 };
-    cmd_slice.ptr = aven_arena_create_array(AvenString, arena, cmd_slice.len);
+    AvenBuildCmdSlice cmd_slice = { .len = copts->flags.len + 5 };
+    cmd_slice.ptr = aven_arena_create_array(char *, arena, cmd_slice.len);
     assert(cmd_slice.ptr != NULL);
 
     size_t i = 0;
@@ -100,7 +105,7 @@ AvenBuildStep cc_compile_object(
     i += 1;
 
     for (size_t j = 0; j < copts->flags.len; j += 1) {    
-        slice_get(cmd_slice, i) = slice_get(copts->flags, j);
+        slice_get(cmd_slice, i) = slice_get(copts->flags, j).ptr;
         i += 1;
     }
 
@@ -113,16 +118,14 @@ AvenBuildStep cc_compile_object(
     slice_get(cmd_slice, i) = src_path;
     i += 1;
 
-    return aven_build_step_cmd(
-        cmd_slice,
-        (AvenBuildOptionalPath){ .value = target_path, .valid = true }
-    );
+    AvenBuildOptionalPath out_path = { .value = target_path, .valid = true };
+    return aven_build_step_cmd_from_slice(out_path, cmd_slice);
 }
 
 typedef struct {
-    AvenString linker;
-    AvenStringSlice flags;
-    AvenString outflag;
+    char *linker;
+    char *outflag;
+    AvenStrSlice flags;
 } LDOpts;
 
 typedef Slice(AvenBuildStep *) AvenBuildStepPtrSlice;
@@ -130,13 +133,13 @@ typedef Slice(AvenBuildStep *) AvenBuildStepPtrSlice;
 AvenBuildStep ld_link_exe(
     LDOpts *ldopts,
     AvenBuildStepPtrSlice obj_steps,
-    AvenString target_path,
+    char *target_path,
     AvenArena *arena
 ) {
-    AvenStringSlice cmd_slice = {
+    AvenBuildCmdSlice cmd_slice = {
         .len = ldopts->flags.len + obj_steps.len + 3
     };
-    cmd_slice.ptr = aven_arena_create_array(AvenString, arena, cmd_slice.len);
+    cmd_slice.ptr = aven_arena_create_array(char *, arena, cmd_slice.len);
     assert(cmd_slice.ptr != NULL);
 
     size_t i = 0;
@@ -144,7 +147,7 @@ AvenBuildStep ld_link_exe(
     i += 1;
 
     for (size_t j = 0; j < ldopts->flags.len; j += 1) {
-        slice_get(cmd_slice, i) = slice_get(ldopts->flags, j);
+        slice_get(cmd_slice, i) = slice_get(ldopts->flags, j).ptr;
         i += 1;
     }
 
@@ -160,15 +163,14 @@ AvenBuildStep ld_link_exe(
         i += 1;
     }
 
-    AvenBuildStep link_step = aven_build_step_cmd(
-        cmd_slice,
-        (AvenBuildOptionalPath){ .value = target_path, .valid = true }
+    AvenBuildOptionalPath out_path = { .value = target_path, .valid = true };
+    AvenBuildStep link_step = aven_build_step_cmd_from_slice(
+        out_path,
+        cmd_slice
     );
 
     for (size_t j = 0; j < obj_steps.len; j += 1) {
-        AvenBuildStep *obj_step = slice_get(obj_steps, j);
-        int error = aven_build_step_add_dep(&link_step, obj_step, arena);
-        assert(error == 0);
+        aven_build_step_add_dep(&link_step, slice_get(obj_steps, j), arena);
     }
 
     return link_step;
@@ -178,6 +180,8 @@ AvenBuildStep ld_link_exe(
 
 int main(int argc, char **argv) {
     void *mem = malloc(ARENA_SIZE);
+    assert(mem != NULL);
+
     AvenArena arena = aven_arena_init(mem, ARENA_SIZE);
 
     int error = aven_arg_parse(
@@ -193,21 +197,13 @@ int main(int argc, char **argv) {
     AvenArgSlice arg_slice = { .ptr = build_args, .len = countof(build_args) };
 
     COpts copts = { 0 };
-    copts.compiler = aven_string_from_cstr(
-        aven_arg_get_string(arg_slice, "-cc")
-    );
-    copts.objflag = aven_string_from_cstr(
-        aven_arg_get_string(arg_slice, "-cobjflag")
-    );
-    copts.outflag = aven_string_from_cstr(
-        aven_arg_get_string(arg_slice, "-coutflag")
-    );
+    copts.compiler = aven_arg_get_string(arg_slice, "-cc");
+    copts.objflag = aven_arg_get_string(arg_slice, "-cobjflag");
+    copts.outflag = aven_arg_get_string(arg_slice, "-coutflag");
     {
-        AvenString cflags_raw = aven_string_from_cstr(
-            aven_arg_get_string(arg_slice, "-cflags")
-        );
-        AvenStringSliceResult result = aven_string_split(
-            cflags_raw,
+        char *cflags_raw = aven_arg_get_string(arg_slice, "-cflags");
+        AvenStrSliceResult result = aven_str_split(
+            aven_str_from_cstr(cflags_raw),
             ' ',
             &arena
         );
@@ -218,22 +214,16 @@ int main(int argc, char **argv) {
 
     LDOpts ldopts = { 0 };
     if (aven_arg_has_arg(arg_slice, "-ld")) {
-        ldopts.linker = aven_string_from_cstr(
-            aven_arg_get_string(arg_slice, "-ld")
-        );
-        ldopts.outflag = aven_string_from_cstr(
-            aven_arg_get_string(arg_slice, "-ldoutflag")
-        );
+        ldopts.linker = aven_arg_get_string(arg_slice, "-ld");
+        ldopts.outflag = aven_arg_get_string(arg_slice, "-ldoutflag");
     } else {
         ldopts.linker = copts.compiler;
         ldopts.outflag = copts.outflag;
     }
     {
-        AvenString ldflags_raw = aven_string_from_cstr(
-            aven_arg_get_string(arg_slice, "-ldflags")
-        );
-        AvenStringSliceResult result = aven_string_split(
-            ldflags_raw,
+        char *ldflags_raw = aven_arg_get_string(arg_slice, "-ldflags");
+        AvenStrSliceResult result = aven_str_split(
+            aven_str_from_cstr(ldflags_raw),
             ' ',
             &arena
         );
@@ -242,79 +232,48 @@ int main(int argc, char **argv) {
         ldopts.flags = result.payload;
     }
 
-    AvenString build_dir_str = aven_string_from_cstr("build_temp");
-    AvenBuildStep build_dir_step = aven_build_step_mkdir(build_dir_str);
+    bool windows_build = aven_arg_get_bool(arg_slice, "-windows");
 
-    AvenString out_dir_str = aven_string_from_cstr("build_out");
-    AvenBuildStep out_dir_step = aven_build_step_mkdir(out_dir_str);
+    char *build_dir = "build_temp";
+    char *out_dir = "build_out";
+    char *bin_dir = "bin";
+    char *src_dir = "src";
+    char *exe_fname;
+    if (windows_build) {
+        exe_fname = "print_collatz.exe";
+    } else {
+        exe_fname = "print_collatz";
+    }
 
-    char *bin_dir_parts[] = { out_dir_str.ptr, "bin" };
-    AvenString bin_dir_str = aven_build_path(
-        bin_dir_parts,
-        countof(bin_dir_parts),
-        &arena 
-    );
-    AvenBuildStep bin_dir_step = aven_build_step_mkdir(bin_dir_str);
-    aven_build_step_add_dep(&bin_dir_step, &out_dir_step, &arena);
+    AvenBuildStep build_dir_step = aven_build_step_mkdir(build_dir);
+    AvenBuildStep out_dir_step = aven_build_step_mkdir(out_dir);
 
-    char src_dir[] = "src";
+    AvenBuildStep bin_dir_step;
+    {
+        char *bin_path = aven_build_path(&arena, out_dir, bin_dir, NULL);
+        bin_dir_step = aven_build_step_mkdir(bin_path);
+        aven_build_step_add_dep(&bin_dir_step, &out_dir_step, &arena);
+    }
 
     AvenBuildStep compile_collatz_step;
     {
-        char *src_path_parts[] = { src_dir, "collatz.c" };
-        AvenString src_path = aven_build_path(
-            src_path_parts,
-            countof(src_path_parts),
-            &arena
-        );
-        char *obj_path_parts[] = { build_dir_str.ptr, "collatz.o" };
-        AvenString obj_path = aven_build_path(
-            obj_path_parts,
-            countof(obj_path_parts),
-            &arena
-        );
-
-        compile_collatz_step = cc_compile_object(
+        char *src_path = aven_build_path(&arena, src_dir, "collatz.c", NULL);
+        char *obj_path = aven_build_path(&arena, build_dir, "collatz.o", NULL);
+        compile_collatz_step = cc_compile_obj(
             &copts,
             src_path,
             obj_path,
             &arena
         );
-        error = aven_build_step_add_dep(
-            &compile_collatz_step,
-            &build_dir_step,
-            &arena
-        );
-        assert(error == 0);
+        aven_build_step_add_dep(&compile_collatz_step, &build_dir_step, &arena);
     }
 
     AvenBuildStep compile_main_step;
     {
-        char *src_path_parts[] = { src_dir, "main.c" };
-        AvenString src_path = aven_build_path(
-            src_path_parts,
-            countof(src_path_parts),
-            &arena
-        );
-        char *obj_path_parts[] = { build_dir_str.ptr, "main.o" };
-        AvenString obj_path = aven_build_path(
-            obj_path_parts,
-            countof(obj_path_parts),
-            &arena
-        );
-
-        compile_main_step = cc_compile_object(
-            &copts,
-            src_path,
-            obj_path,
-            &arena
-        );
-        error = aven_build_step_add_dep(
-            &compile_main_step,
-            &build_dir_step,
-            &arena
-        );
-        assert(error == 0);
+        char *src_path = aven_build_path(&arena, src_dir, "main.c", NULL);
+        char *obj_path = aven_build_path(&arena, build_dir, "main.o", NULL);
+        compile_main_step = cc_compile_obj(&copts, src_path, obj_path, &arena);
+        aven_build_step_add_dep(&compile_main_step, &build_dir_step, &arena);
     }
 
     AvenBuildStep link_exe_step;
@@ -327,26 +286,15 @@ int main(int argc, char **argv) {
             .ptr = dep_objs,
             .len = countof(dep_objs),
         };
-
-        char *exe_path_parts[] = { bin_dir_str.ptr, "print_collatz" };
-        AvenString exe_path = aven_build_path(
-            exe_path_parts,
-            countof(exe_path_parts),
-            &arena
+        char *exe_path = aven_build_path(
+            &arena,
+            out_dir,
+            bin_dir,
+            exe_fname,
+            NULL
         );
-
-        link_exe_step = ld_link_exe(
-            &ldopts,
-            deps,
-            exe_path,
-            &arena
-        );
-        error = aven_build_step_add_dep(
-            &link_exe_step,
-            &bin_dir_step,
-            &arena
-        );
-        assert(error == 0);
+        link_exe_step = ld_link_exe(&ldopts, deps, exe_path, &arena);
+        aven_build_step_add_dep(&link_exe_step, &bin_dir_step, &arena);
     }
 
     bool clean = aven_arg_get_bool(arg_slice, "-clean");
@@ -363,3 +311,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
