@@ -15,8 +15,6 @@
     //typedef void *AvenBuildFD;
     typedef void *AvenBuildPID;
 
-    #define AVEN_BUILD_PATH_SEP '\\'
-
     typedef struct {
         uint32_t len;
         void *security_descriptor;
@@ -98,8 +96,6 @@
 
     //typedef int AvenBuildFD;
     typedef pid_t AvenBuildPID;
-
-    #define AVEN_BUILD_PATH_SEP '/'
 #endif
 
 typedef enum {
@@ -109,6 +105,7 @@ typedef enum {
 } AvenBuildStepState;
 
 typedef enum {
+    AVEN_BUILD_STEP_TYPE_ROOT = 0,
     AVEN_BUILD_STEP_TYPE_CMD,
     AVEN_BUILD_STEP_TYPE_RM,
     AVEN_BUILD_STEP_TYPE_RMDIR,
@@ -301,6 +298,10 @@ static inline AvenBuildStep aven_build_step_cmd_from_slice(
     };
 }
 
+static inline AvenBuildStep aven_build_step_root(void) {
+    return (AvenBuildStep){ .type = AVEN_BUILD_STEP_TYPE_ROOT };
+}
+
 static inline AvenBuildStep aven_build_step_cmd(
     AvenBuildOptionalPath out_path,
     char *cmd_str,
@@ -432,6 +433,9 @@ static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
 
     AvenBuildPIDResult result;
     switch (step->type) {
+        case AVEN_BUILD_STEP_TYPE_ROOT:
+            step->state = AVEN_BUILD_STEP_STATE_DONE;
+            break;
         case AVEN_BUILD_STEP_TYPE_CMD:
             result = aven_build_cmd_run(
                 step->data.cmd,
@@ -510,39 +514,6 @@ static void aven_build_step_reset(AvenBuildStep *step) {
     for (AvenBuildStepNode *dep = step->dep; dep != NULL; dep = dep->next) {
         aven_build_step_reset(dep->step);
     }
-}
-
-static char *aven_build_path(
-    AvenArena *arena,
-    char *path_str,
-    ...
-) {
-    AvenStr path_data[AVEN_BUILD_MAX_ARGS];
-    AvenStrSlice path = { .len = 0, .ptr = path_data };
-
-    path_data[0] = aven_str_from_cstr(path_str);
-    path.len += 1;
-
-    va_list args;
-    va_start(args, path_str);
-    for (
-        char *cstr = va_arg(args, char *);
-        cstr != NULL;
-        cstr = va_arg(args, char *)
-    ) {
-        path_data[path.len] = aven_str_from_cstr(cstr);
-        path.len += 1;
-    }
-    va_end(args);
-
-    AvenStrResult result = aven_str_join(
-        path,
-        AVEN_BUILD_PATH_SEP,
-        arena
-    );
-    assert(result.error == 0);
-
-    return result.payload.ptr;
 }
 
 //typedef struct {

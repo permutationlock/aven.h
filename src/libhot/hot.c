@@ -1,0 +1,2 @@
+char message[] = "Oh mamma!";
+

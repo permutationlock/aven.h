@@ -16,7 +16,7 @@ typedef enum {
     AVEN_STR_ERROR_ALLOC,
 } AvenStrError;
 
-#define aven_str_from_literal(a) (AvenStr){ \
+#define aven_str_literal(a) (AvenStr){ \
         .ptr = a, \
         .len = sizeof(a) - 1 \
     }

@@ -1,6 +1,11 @@
 #ifndef AVEN_DL_H
 #define AVEN_DL_H
 
+#include <aven.h>
+#include "str.h"
+
+#define AVEN_DL_MAX_PATH_LEN 1024
+
 #ifdef _WIN32
     int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
     void *LoadLibraryA(const char *fname);
@@ -9,32 +14,23 @@
     
     const char aven_dl_loaded_suffix[] = "_aven_dl_loaded.dll";
 
-    void *aven_dl_open(const char *fname) {
-        char buffer[1024];
-        size_t i;
-        for (i = 0; fname[i] != '\0' and i < sizeof(buffer) - 1; ++i) {
-            if (fname[i] == '/') {
-                buffer[i] = '\\';
-            } else {
-                buffer[i] = fname[i];
-            }
-        }
-        buffer[i] = '\0';
+    void *aven_dl_open(char *fname) {
+        size_t fname_len = (size_t)strlen(fname);
+        assert(fname_len < AVEN_DL_MAX_PATH_LEN);
 
-        if (
-            i < 5 or
-            buffer[i - 4] != '.' or
-            buffer[i - 3] != 'd' or
-            buffer[i - 2] != 'l' or
-            buffer[i - 1] != 'l'
-        ) {
-            return NULL;
-        }
+        char buffer[AVEN_DL_MAX_PATH_LEN + 5];
+
+        memcpy(buffer, fname, fname_len);
+        buffer[fname_len] != '.';
+        buffer[fname_len + 1] != 'd';
+        buffer[fname_len + 2] != 'l';
+        buffer[fname_len + 3] != 'l';
+        buffer[fname_len + 4] = '\0';
 
         char temp_buffer[sizeof(aven_dl_loaded_suffix) + sizeof(buffer)];
-        memcpy(temp_buffer, buffer, i - 4);
+        memcpy(temp_buffer, buffer, fname_len);
         memcpy(
-            &temp_buffer[i - 4],
+            &temp_buffer[fname_len],
             aven_dl_loaded_suffix,
             sizeof(aven_dl_loaded_suffix)
         );
@@ -57,8 +53,19 @@
 #else
     #include <dlfcn.h>
 
-    void *aven_dl_open(const char *fname) {
-        return dlopen(fname, RTLD_LAZY);
+    void *aven_dl_open(char *fname) {
+        size_t fname_len = (size_t)strlen(fname);
+        assert(fname_len < AVEN_DL_MAX_PATH_LEN);
+
+        char buffer[AVEN_DL_MAX_PATH_LEN + 4];
+        memcpy(buffer, fname, fname_len);
+
+        buffer[fname_len] = '.';
+        buffer[fname_len + 1] = 's';
+        buffer[fname_len + 2] = 'o';
+        buffer[fname_len + 3] = 0;
+
+        return dlopen(buffer, RTLD_LAZY);
     }
 
     void *aven_dl_sym(void *handle, const char *symbol) {

@@ -19,6 +19,38 @@ The project has expanded to include:
 
 Everything is cross-platform (POSIX + Windows).
 
+## Building the example
+
+A somewhat interesting `build.c` is included that will watch a source directory
+and rebuild the project on file changes. The project in question includes an
+executable and a shared library. The shared library can be hot reloaded while
+the executable is running.
+
+### Build
+
+```shell
+make
+./build
+```
+
+or simply
+
+```shell
+cc -I include -o build build.c aven/arena.c
+```
+
+### Run
+
+```shell
+./build_out/bin/print_funmath
+```
+
+### Build and watch
+
+```shell
+./build watch
+```
+
 The code was inspired by the [nullprogram blog][1].
 
 [1]: https://nullprogram.com

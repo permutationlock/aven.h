@@ -18,7 +18,7 @@ typedef struct {
     union {
         bool arg_bool;
         int arg_int;
-        char *arg_string;
+        char *arg_str;
     } data;
 } AvenArgValue;
 
@@ -30,6 +30,9 @@ typedef struct {
     AvenArgValue value;
 } AvenArg;
 
+typedef Optional(AvenArg) AvenArgOptional;
+typedef Slice(AvenArg) AvenArgSlice;
+
 static void aven_arg_print_type(AvenArgType arg_type) {
     switch (arg_type) {
         case AVEN_ARG_TYPE_BOOL:
@@ -38,7 +41,7 @@ static void aven_arg_print_type(AvenArgType arg_type) {
             printf(" n");
             break;
         case AVEN_ARG_TYPE_STRING:
-            printf(" \"string\"");
+            printf(" \"str\"");
             break;
         default:
             break;
@@ -53,7 +56,7 @@ static void aven_arg_print_value(AvenArgValue value) {
             printf("%d", value.data.arg_int);
             break;
         case AVEN_ARG_TYPE_STRING:
-            printf("\"%s\"", value.data.arg_string);
+            printf("\"%s\"", value.data.arg_str);
             break;
         default:
             break;
@@ -81,34 +84,34 @@ static void aven_arg_print(AvenArg arg) {
     printf("\n");
 }
 
-static void aven_arg_help(AvenArg *args, int args_len) {
+static void aven_arg_help(AvenArgSlice args) {
     printf("arguments:\n");
-    for (int i = 0; i < args_len; i += 1) {
-        aven_arg_print(args[i]);
+    for (size_t i = 0; i < args.len; i += 1) {
+        aven_arg_print(slice_get(args, i));
     }
-    printf("to show this message use:\n\t-h, -help, --help\n");
+    printf("to show this message use:\n\thelp, -h, -help, --help\n");
 }
 
 static inline int aven_arg_parse(
-    AvenArg *args,
-    int args_len,
+    AvenArgSlice args,
     char **argv,
     int argc
 ) {
     for (int i = 1; i < argc; i += 1) {
         char *arg_str = argv[i];
         if (
+            strcmp(arg_str, "help") == 0 or
             strcmp(arg_str, "-h") == 0 or
             strcmp(arg_str, "-help") == 0 or
             strcmp(arg_str, "--help") == 0
         ) {
-            aven_arg_help(args, args_len);
+            aven_arg_help(args);
             return -1;
         }
 
         bool found = false;
-        for (int j = 0; j < args_len; j += 1) {
-            AvenArg *arg = &args[j];
+        for (size_t j = 0; j < args.len; j += 1) {
+            AvenArg *arg = &slice_get(args, j);
             if (strcmp(arg_str, arg->name) != 0) {
                 continue;
             }
@@ -133,7 +136,7 @@ static inline int aven_arg_parse(
                         aven_arg_print(*arg);
                         return -1;
                     }
-                    arg->value.data.arg_string = argv[i + 1];
+                    arg->value.data.arg_str = argv[i + 1];
                     i += 1;
                     break;
                 default:
@@ -143,14 +146,14 @@ static inline int aven_arg_parse(
 
         if (!found) {
             printf("unknown flag: %s\n", arg_str);
-            aven_arg_help(args, args_len);
+            aven_arg_help(args);
             return -1;
         }
     }
 
     int error = 0;
-    for (int j = 0; j < args_len; j += 1) {
-        AvenArg arg = args[j];
+    for (size_t j = 0; j < args.len; j += 1) {
+        AvenArg arg = slice_get(args, j);
         if (!arg.optional and arg.value.type != arg.type) {
             printf("missing required argument:\n");
             aven_arg_print(arg);
@@ -160,9 +163,6 @@ static inline int aven_arg_parse(
 
     return error;
 }
-
-typedef Optional(AvenArg) AvenArgOptional;
-typedef Slice(AvenArg) AvenArgSlice;
 
 static AvenArgOptional aven_arg_get(
     AvenArgSlice arg_slice,
@@ -201,12 +201,12 @@ static inline int aven_arg_get_int(AvenArgSlice arg_slice, char *argname) {
     return opt_arg.value.value.data.arg_int;
 }
 
-static inline char *aven_arg_get_string(AvenArgSlice arg_slice, char *argname) {
+static inline char *aven_arg_get_str(AvenArgSlice arg_slice, char *argname) {
     AvenArgOptional opt_arg = aven_arg_get(arg_slice, argname);
     assert(opt_arg.valid);
     assert(opt_arg.value.type == opt_arg.value.value.type);
     assert(opt_arg.value.type == AVEN_ARG_TYPE_STRING);
-    return opt_arg.value.value.data.arg_string;
+    return opt_arg.value.value.data.arg_str;
 }
 
 
