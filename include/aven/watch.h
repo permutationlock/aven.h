@@ -7,6 +7,7 @@
 
 #ifdef _WIN32
     typedef void *AvenWatchHandle;
+    typedef Slice(AvenWatchHandle) AvenWatchHandleSlice;
 
     #ifndef WIN_INFINITE
         #define WIN_INFINITE 0xffffffff
@@ -21,13 +22,18 @@
     );
     int FindNextChangeNotification(AvenWatchHandle handle);
     int FindCloseChangeNotification(AvenWatchHandle handle);
-    uint32_t WaitForSingleObject(AvenWatchHandle handle, uint32_t timeout_ms);
+    uint32_t WaitForMultipleObjects(
+        uint32_t nhandles,
+        AvenWatchHandle handle,
+        int wait_all,
+        uint32_t timeout_ms
+    );
 
     AvenWatchHandle aven_watch_init(const char *dirname) {
         return FindFirstChangeNotificationA(dirname, 0, 0x1 | 0x2 | 0x8 | 0x10);
     }
 
-    bool aven_watch_check_multiple(AvenWatchHandleSlice handle, int timeout) {
+    bool aven_watch_check_multiple(AvenWatchHandleSlice handles, int timeout) {
         uint32_t win_timeout = (uint32_t)timeout;
         if (timeout < 0) {
             win_timeout = WIN_INFINITE;
@@ -56,7 +62,7 @@
             handles.len -= (result + 1);
         } while (handles.len > 0);
 
-        return (result == 0);
+        return signaled;
     }
 
     bool aven_watch_check(AvenWatchHandle handle, int timeout) {

@@ -21,10 +21,10 @@
         char buffer[AVEN_DL_MAX_PATH_LEN + 5];
 
         memcpy(buffer, fname, fname_len);
-        buffer[fname_len] != '.';
-        buffer[fname_len + 1] != 'd';
-        buffer[fname_len + 2] != 'l';
-        buffer[fname_len + 3] != 'l';
+        buffer[fname_len] = '.';
+        buffer[fname_len + 1] = 'd';
+        buffer[fname_len + 2] = 'l';
+        buffer[fname_len + 3] = 'l';
         buffer[fname_len + 4] = '\0';
 
         char temp_buffer[sizeof(aven_dl_loaded_suffix) + sizeof(buffer)];
