@@ -3,8 +3,8 @@
 .PHONY: all clean
 
 all: build
-build: build.c aven/arena.c
-	$(CC) $(CFLAGS) -Iinclude -o build build.c aven/arena.c
+build: build.c
+	$(CC) -o build build.c
 clean:
 	rm build
 

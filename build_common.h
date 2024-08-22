@@ -1,9 +1,12 @@
 #ifndef BUILD_H
 #define BUILD_H
 
-#include <aven.h>
-#include <aven/arg.h>
-#include <aven/build.h>
+#include "aven/include/aven.h"
+#include "aven/include/aven/arena.h"
+#include "aven/include/aven/arg.h"
+#include "aven/include/aven/build.h"
+#include "aven/include/aven/path.h"
+#include "aven/include/aven/str.h"
 
 AvenArg default_args[] = {
     {
@@ -116,7 +119,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-cdefflag",
-        .description = "C compiler define macro flag",
+        .description = "C compiler flag to define macro",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -125,7 +128,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-cobjflag",
-        .description = "C compiler compile object flag",
+        .description = "C compiler flag to compile object",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -134,7 +137,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-coutflag",
-        .description = "C compiler output filename flag",
+        .description = "C compiler flag to specify output filename",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -143,7 +146,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-ldlibflag",
-        .description = "Linker add library to link flag",
+        .description = "Linker flag to link library",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -152,7 +155,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-ldsoflag",
-        .description = "Linker output shared library flag",
+        .description = "Linker flag to emit shared library",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -161,7 +164,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-ldoutflag",
-        .description = "Linker output filename flag",
+        .description = "Linker flag to specify output filename",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
@@ -170,7 +173,7 @@ AvenArg default_args[] = {
     },
     {
         .name = "-aroutflag",
-        .description = "Archiver output filename flag",
+        .description = "Archiver flag to specify output filename",
         .type = AVEN_ARG_TYPE_STRING,
         .optional = true,
     },
@@ -218,7 +221,7 @@ static DefaultOpts get_default_opts(AvenArgSlice arg_slice, AvenArena *arena) {
      
     opts.cc.compiler = aven_arg_get_str(arg_slice, "-cc");
     opts.cc.incflag = aven_arg_get_str(arg_slice, "-cincflag");
-    opts.cc.defflag = aven_arg_get_str(arg_slice, "-cincflag");
+    opts.cc.defflag = aven_arg_get_str(arg_slice, "-cdefflag");
     opts.cc.objflag = aven_arg_get_str(arg_slice, "-cobjflag");
     opts.cc.outflag = aven_arg_get_str(arg_slice, "-coutflag");
     {
@@ -289,6 +292,47 @@ static AvenBuildStep cc_compile_obj_ex(
     char *target_path,
     AvenArena *arena
 ) {
+    assert(src_path != NULL);
+    assert(target_path != NULL);
+
+    {
+        AvenStr target_str = aven_str_from_cstr(target_path);
+        assert(target_str.len > 3);
+        AvenStr target_ext_str = {
+            .ptr = target_str.ptr + (target_str.len - 2),
+            .len = 2,
+        };
+        if (!aven_str_compare(target_ext_str, aven_str(".o"))) {
+            char *src_fname = aven_path_fname(src_path, arena);
+            AvenStr src_fname_str = aven_str_from_cstr(src_fname);
+
+            AvenStr src_fname_body;
+            {
+                AvenStrSliceResult result = aven_str_split(
+                    src_fname_str,
+                    '.',
+                    arena
+                );
+                assert(result.error == 0);
+                src_fname_body = slice_get(result.payload, 0);
+            }
+
+            AvenStr obj_ext = aven_str(".o");
+            AvenStr out_fname;
+            {
+                AvenStrResult result = aven_str_concat(
+                    src_fname_body,
+                    obj_ext,
+                    arena
+                );
+                assert(result.error == 0);
+                out_fname = result.payload;
+            }
+
+            target_path = aven_path(arena, target_path, out_fname.ptr, NULL);
+        }
+    }
+
     AvenBuildCmdSlice cmd_slice = {
         .len = 5 + opts->cc.flags.len + 2 * includes.len + 2 * macros.len
     };
@@ -532,6 +576,88 @@ static inline AvenBuildStep ar_create_lib(
     }
 
     return ar_step;
+}
+
+char *aven_src_file_array[] = {
+    "arena.c",
+    "arg.c",
+    "build.c",
+    "dl.c",
+    "path.c",
+    "watch.c",
+};
+
+typedef Slice(AvenBuildStep) AvenBuildStepSlice;
+
+static inline AvenBuildStep build_aven_step(
+    DefaultOpts *opts,
+    char *aven_inc_path,
+    char *aven_src_path,
+    AvenBuildStep *work_path_step,
+    AvenBuildStep *out_path_step,
+    AvenArena *arena
+) {
+    assert(work_path_step->out_path.valid);
+    char *work_path = work_path_step->out_path.value;
+
+    assert(out_path_step->out_path.valid);
+    char *out_path = out_path_step->out_path.value;
+
+    CStrSlice src_files = {
+        .ptr = aven_src_file_array,
+        .len = countof(aven_src_file_array),
+    };
+    AvenBuildStepSlice obj_steps = { .len = src_files.len };
+    obj_steps.ptr = aven_arena_create_array(
+        AvenBuildStep,
+        arena,
+        src_files.len
+    );
+    assert(obj_steps.ptr != NULL);
+
+    char *include_array[] = { aven_inc_path };
+    CStrSlice includes = {
+        .ptr = include_array,
+        .len = countof(include_array),
+    };
+
+    CStrSlice macros = { 0 };
+
+    for (size_t i = 0; i < obj_steps.len; i += 1) {
+        char *src_path = aven_path(
+            arena,
+            aven_src_path,
+            slice_get(src_files, i),
+            NULL
+        );
+        AvenBuildStep *obj_step = &slice_get(obj_steps, i);
+        *obj_step = cc_compile_obj_ex(
+            opts,
+            includes,
+            macros,
+            src_path,
+            work_path,
+            arena
+        );
+        aven_build_step_add_dep(obj_step, work_path_step, arena);
+    }
+
+    AvenBuildStepPtrSlice obj_refs = { .len = obj_steps.len };
+    obj_refs.ptr = aven_arena_create_array(
+        AvenBuildStep *,
+        arena,
+        obj_refs.len
+    );
+    assert(obj_refs.ptr != NULL);
+    
+    for (size_t i = 0; i < obj_steps.len; i += 1) {
+        slice_get(obj_refs, i) = &slice_get(obj_steps, i);
+    }
+
+    char *lib_path = aven_path(arena, out_path, "libaven", NULL);
+    AvenBuildStep lib_step = ar_create_lib(opts, obj_refs, lib_path, arena);
+    aven_build_step_add_dep(&lib_step, out_path_step, arena);
+    return lib_step;
 }
 
 #endif // BUILD_H

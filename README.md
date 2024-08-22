@@ -26,29 +26,34 @@ and rebuild the project on file changes. The project in question includes an
 executable and a shared library. The shared library can be hot reloaded while
 the executable is running.
 
-### Build
+### Build the build system
 
 ```shell
 make
-./build
 ```
 
 or simply
 
 ```shell
-cc -I include -o build build.c aven/arena.c
+cc -o build build.c
+```
+
+### Build the project
+
+```shell
+./build
+```
+
+or build and watch source with
+
+```
+./build watch
 ```
 
 ### Run
 
 ```shell
 ./build_out/bin/print_funmath
-```
-
-### Build and watch
-
-```shell
-./build watch
 ```
 
 The code was inspired by the [nullprogram blog][1].

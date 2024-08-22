@@ -3,15 +3,12 @@
 
 #include <stdarg.h>
 
-#include <aven.h>
+#include "../aven.h"
 #include "arena.h"
 #include "str.h"
 
-#ifdef _WIN32
-    uint32_t GetModuleFileNameA(void *mod, char *buffer, uint32_t buffer_len);
-#else
-    #include <unistd.h>
-#endif
+#define AVEN_PATH_MAX_ARGS 32
+#define AVEN_PATH_MAX_LEN 4096
 
 #ifdef _WIN32
     #define AVEN_PATH_SEP '\\'
@@ -19,10 +16,20 @@
     #define AVEN_PATH_SEP '/'
 #endif
 
-#define AVEN_PATH_MAX_ARGS 32
-#define AVEN_PATH_MAX_LEN 4096
+char *aven_path(AvenArena *arena, char *path_str, ...);
+char *aven_path_dir(char *path, AvenArena *arena);
+char *aven_path_fname(char *path, AvenArena *arena);
+char *aven_path_exe(AvenArena *arena);
 
-static inline char *aven_path(AvenArena *arena, char *path_str, ...) {
+#if defined(AVEN_PATH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+
+#ifdef _WIN32
+    uint32_t GetModuleFileNameA(void *mod, char *buffer, uint32_t buffer_len);
+#else
+    #include <unistd.h>
+#endif
+
+char *aven_path(AvenArena *arena, char *path_str, ...) {
     AvenStr path_data[AVEN_PATH_MAX_ARGS];
     AvenStrSlice path = { .len = 0, .ptr = path_data };
 
@@ -51,7 +58,54 @@ static inline char *aven_path(AvenArena *arena, char *path_str, ...) {
     return result.payload.ptr;
 }
 
-static inline char *aven_path_exe(AvenArena *arena) {
+char *aven_path_dir(char *path, AvenArena *arena) {
+    size_t path_len = strlen(path);
+    size_t i;
+    for (i = path_len; i > 0; i -= 1) {
+        if (path[i - 1] == AVEN_PATH_SEP) {
+            break;
+        }
+    }
+    if (i == 0) {
+        return "";
+    }
+    if (i == path_len) {
+        return path;
+    }
+    char *dir_path = aven_arena_alloc(arena, i, 1);
+    if (dir_path == NULL) {
+        return NULL;
+    }
+    memcpy(dir_path, path, i - 1);
+    dir_path[i - 1] = 0;
+    return dir_path;
+}
+
+char *aven_path_fname(char *path, AvenArena *arena) {
+    size_t path_len = strlen(path);
+    size_t i;
+    for (i = path_len; i > 0; i -= 1) {
+        if (path[i - 1] == AVEN_PATH_SEP) {
+            break;
+        }
+    }
+    if (i == 0) {
+        return path;
+    }
+    if (i == path_len) {
+        return "";
+    }
+    size_t fname_len = path_len - i + 1;
+    char *fname = aven_arena_alloc(arena, fname_len, 1);
+    if (fname == NULL) {
+        return NULL;
+    }
+    memcpy(fname, path + i, fname_len);
+    fname[fname_len - 1] = 0;
+    return fname;
+}
+
+char *aven_path_exe(AvenArena *arena) {
 #ifdef _WIN32
     char buffer[AVEN_PATH_MAX_LEN];
     uint32_t len = GetModuleFileNameA(NULL, buffer, countof(buffer));
@@ -84,25 +138,6 @@ static inline char *aven_path_exe(AvenArena *arena) {
 #endif
 }
 
-static inline char *aven_path_exe_dir(AvenArena *arena) {
-    AvenArena temp_arena = *arena;
-    char *exe_path = aven_path_exe(&temp_arena);
-    if (exe_path == NULL) {
-        return NULL;
-    }
-
-    size_t i;
-    for (i = strlen(exe_path); i > 0; i -= 1) {
-        if (exe_path[i - 1] == AVEN_PATH_SEP) {
-            break;
-        }
-    }
-    if (i == 0) {
-        return "";
-    }
-    exe_path[i - 1] = 0;
-    *arena = temp_arena;
-    return exe_path;
-}
+#endif // AVEN_PATH_IMPLEMENTATION
 
 #endif // AVEN_PATH_H

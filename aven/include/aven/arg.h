@@ -1,11 +1,7 @@
 #ifndef AVEN_ARG_H
 #define AVEN_ARG_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <aven.h>
+#include "../aven.h"
 
 typedef enum {
     AVEN_ARG_TYPE_BOOL = 0,
@@ -32,6 +28,20 @@ typedef struct {
 
 typedef Optional(AvenArg) AvenArgOptional;
 typedef Slice(AvenArg) AvenArgSlice;
+
+int aven_arg_parse(AvenArgSlice args, char **argv, int argc);
+
+AvenArgOptional aven_arg_get(AvenArgSlice arg_slice, char *argname);
+bool aven_arg_has_arg(AvenArgSlice arg_slice, char *argname);
+bool aven_arg_get_bool(AvenArgSlice arg_slice, char *argname);
+int aven_arg_get_int(AvenArgSlice arg_slice, char *argname);
+char *aven_arg_get_str(AvenArgSlice arg_slice, char *argname);
+
+#if defined(AVEN_ARG_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static void aven_arg_print_type(AvenArgType arg_type) {
     switch (arg_type) {
@@ -92,7 +102,7 @@ static void aven_arg_help(AvenArgSlice args) {
     printf("to show this message use:\n\thelp, -h, -help, --help\n");
 }
 
-static inline int aven_arg_parse(
+int aven_arg_parse(
     AvenArgSlice args,
     char **argv,
     int argc
@@ -164,7 +174,7 @@ static inline int aven_arg_parse(
     return error;
 }
 
-static AvenArgOptional aven_arg_get(
+AvenArgOptional aven_arg_get(
     AvenArgSlice arg_slice,
     char *argname
 ) {
@@ -180,12 +190,12 @@ static AvenArgOptional aven_arg_get(
     return (AvenArgOptional){ .valid = false };
 }
 
-static inline bool aven_arg_has_arg(AvenArgSlice arg_slice, char *argname) {
+bool aven_arg_has_arg(AvenArgSlice arg_slice, char *argname) {
     AvenArgOptional opt_arg = aven_arg_get(arg_slice, argname);
     return opt_arg.valid and (opt_arg.value.type == opt_arg.value.value.type);
 }
 
-static inline bool aven_arg_get_bool(AvenArgSlice arg_slice, char *argname) {
+bool aven_arg_get_bool(AvenArgSlice arg_slice, char *argname) {
     AvenArgOptional opt_arg = aven_arg_get(arg_slice, argname);
     assert(opt_arg.valid);
     assert(opt_arg.value.type == opt_arg.value.value.type);
@@ -193,7 +203,7 @@ static inline bool aven_arg_get_bool(AvenArgSlice arg_slice, char *argname) {
     return opt_arg.value.value.data.arg_bool;
 }
 
-static inline int aven_arg_get_int(AvenArgSlice arg_slice, char *argname) {
+int aven_arg_get_int(AvenArgSlice arg_slice, char *argname) {
     AvenArgOptional opt_arg = aven_arg_get(arg_slice, argname);
     assert(opt_arg.valid);
     assert(opt_arg.value.type == opt_arg.value.value.type);
@@ -201,7 +211,7 @@ static inline int aven_arg_get_int(AvenArgSlice arg_slice, char *argname) {
     return opt_arg.value.value.data.arg_int;
 }
 
-static inline char *aven_arg_get_str(AvenArgSlice arg_slice, char *argname) {
+char *aven_arg_get_str(AvenArgSlice arg_slice, char *argname) {
     AvenArgOptional opt_arg = aven_arg_get(arg_slice, argname);
     assert(opt_arg.valid);
     assert(opt_arg.value.type == opt_arg.value.value.type);
@@ -209,5 +219,6 @@ static inline char *aven_arg_get_str(AvenArgSlice arg_slice, char *argname) {
     return opt_arg.value.value.data.arg_str;
 }
 
+#endif // AVEN_ARG_IMPLEMENTATION
 
 #endif // AVEN_ARG_H

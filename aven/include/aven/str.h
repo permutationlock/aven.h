@@ -1,9 +1,7 @@
 #ifndef AVEN_STR_H
 #define AVEN_STR_H
 
-#include <string.h>
-
-#include <aven.h>
+#include "../aven.h"
 #include "arena.h"
 
 typedef Slice(char) AvenStr;
@@ -16,13 +14,29 @@ typedef enum {
     AVEN_STR_ERROR_ALLOC,
 } AvenStrError;
 
-#define aven_str_literal(a) (AvenStr){ \
+#define aven_str(a) (AvenStr){ \
         .ptr = a, \
         .len = sizeof(a) - 1 \
     }
 
 static inline AvenStr aven_str_from_cstr(char *cstr) {
-    return (AvenStr){ .ptr = cstr, .len = strlen(cstr) };
+    size_t len = 0;
+    for (char *c = cstr; *c != 0; c += 1) {
+        len += 1;
+    }
+    return (AvenStr){ .ptr = cstr, .len = len };
+}
+
+static inline bool aven_str_compare(AvenStr s1, AvenStr s2) {
+    if (s1.len != s2.len) {
+        return false;
+    }
+    for (size_t i = 0; i < s1.len; i += 1) {
+        if (slice_get(s1, i) != slice_get(s2, i)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static inline AvenStrSliceResult aven_str_split(

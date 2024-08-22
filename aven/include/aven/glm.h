@@ -1,7 +1,7 @@
 #ifndef AVEN_GLM_H
 #define AVEN_GLM_H
 
-#include <aven.h>
+#include "../aven.h"
 
 #define AVEN_GLM_PI_D 3.14159265358979323846264338327950288
 #define AVEN_GLM_PI_F 3.14159265358979323846264338327950288f

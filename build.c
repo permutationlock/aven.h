@@ -2,13 +2,16 @@
 
 #include <stdlib.h>
 
-#include <aven.h>
-#include <aven/arg.h>
-#include <aven/build.h>
-#include <aven/path.h>
-#include <aven/watch.h>
+#define AVEN_IMPLEMENTATION
 
-#include "build.h"
+#include "aven/include/aven.h"
+#include "aven/include/aven/arena.h"
+#include "aven/include/aven/arg.h"
+#include "aven/include/aven/build.h"
+#include "aven/include/aven/path.h"
+#include "aven/include/aven/watch.h"
+
+#include "build_common.h"
 
 AvenArg custom_args[] = {
     {
@@ -48,13 +51,12 @@ int main(int argc, char **argv) {
     char *out_dir = "build_out";
     char *src_dir = "src";
     char *libhot_dir = aven_path(&arena, src_dir, "libhot", NULL);
-    char *aven_dir = "aven";
     char *exe_fname = "print_funmath";
 
     AvenBuildStep build_dir_step = aven_build_step_mkdir(build_dir);
     AvenBuildStep out_dir_step = aven_build_step_mkdir(out_dir);
 
-    char *inc_paths[] = { "include" };
+    char *inc_paths[] = { aven_path(&arena, "aven", "include", NULL) };
     CStrSlice includes = { .ptr = inc_paths, .len = countof(inc_paths) };
     CStrSlice macros = { 0 };
 
@@ -89,20 +91,26 @@ int main(int argc, char **argv) {
         aven_build_step_add_dep(&lock_dir_step, &bin_dir_step, &arena);
     }
 
-    AvenBuildStep arena_obj_step;
+    AvenBuildStep aven_dir_step;
     {
-        char *src_path = aven_path(&arena, aven_dir, "arena.c", NULL);
-        char *obj_path = aven_path(&arena, build_dir, "arena.o", NULL);
-        arena_obj_step = cc_compile_obj_ex(
-            &opts,
-            includes,
-            macros,
-            src_path,
-            obj_path,
-            &arena
+        char *dir_path = aven_path(
+            &arena,
+            build_dir_step.out_path.value,
+            "aven",
+            NULL
         );
-        aven_build_step_add_dep(&arena_obj_step, &build_dir_step, &arena);
+        aven_dir_step = aven_build_step_mkdir(dir_path);
+        aven_build_step_add_dep(&aven_dir_step, &build_dir_step, &arena);
     }
+
+    AvenBuildStep aven_lib_step = build_aven_step(
+        &opts,
+        "aven/include",
+        "aven/src",
+        &aven_dir_step,
+        &build_dir_step,
+        &arena
+    );
 
     AvenBuildStep main_obj_step;
     {
@@ -158,7 +166,6 @@ int main(int argc, char **argv) {
         aven_build_step_add_dep(&hot_obj_step, &build_dir_step, &arena);
     }
 
-    AvenBuildStep lock_dep_step;
     AvenBuildStep build_dep_step;
     {
         char *lock_path = aven_path(
@@ -167,9 +174,7 @@ int main(int argc, char **argv) {
             "lock",
             NULL
         );
-        lock_dep_step = aven_build_step_touch(lock_path);
-        aven_build_step_add_dep(&lock_dep_step, &lock_dir_step, &arena);
-        build_dep_step = aven_build_step_rm(lock_path);
+        build_dep_step = aven_build_step_touch(lock_path);
         aven_build_step_add_dep(&build_dep_step, &lock_dir_step, &arena);
     }
 
@@ -188,7 +193,6 @@ int main(int argc, char **argv) {
         );
         link_so_step = ld_link_so(&opts, deps, lib_path, &arena);
         aven_build_step_add_dep(&link_so_step, &dep_dir_step, &arena);
-        aven_build_step_add_dep(&link_so_step, &lock_dep_step, &arena);
     }
     aven_build_step_add_dep(&build_dep_step, &link_so_step, &arena);
 
@@ -196,8 +200,8 @@ int main(int argc, char **argv) {
     {
         AvenBuildStep *dep_objs[] = {
             &main_obj_step,
-            &arena_obj_step,
-            &lib_step
+            &aven_lib_step,
+            &lib_step,
         };
         AvenBuildStepPtrSlice deps = {
             .ptr = dep_objs,
@@ -239,7 +243,12 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "BUILD ERROR: %d\n", error);
             }
             aven_build_step_reset(&root_step);
-            aven_watch_check_multiple(handle_slice, -1);
+            bool success = aven_watch_check_multiple(handle_slice, -1);
+            if (!success) {
+                fprintf(stderr, "directory watching failed\n");
+                error = 1;
+                break;
+            }
             while (aven_watch_check_multiple(handle_slice, 100)) {}
             printf("\nRE-BUILDING:\n");
         }
@@ -248,12 +257,12 @@ int main(int argc, char **argv) {
     } else {
         error = aven_build_step_run(&root_step, arena);
         if (error != 0) {
-            return error;
+            fprintf(stderr, "BUILD ERROR: %d\n", error);
         }
     }
 
     free(mem);
 
-    return 0;
+    return error;
 }
 

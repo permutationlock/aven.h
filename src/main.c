@@ -23,7 +23,7 @@ int main(void) {
     printf("\tcollatz(%d) = %d\n", 5, collatz(5));
     printf("\tfibonacci(%d) = %d\n", 5, fibonacci(5));
 
-    char *cwd_path = aven_path_exe_dir(&arena);
+    char *cwd_path = aven_path_dir(aven_path_exe(&arena), &arena);
 
     char *deplock_path = aven_path(&arena, cwd_path, "deplock", NULL);
     char *libhot_path = aven_path(&arena, cwd_path, "dep", "libhot", NULL);

@@ -5,7 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <aven.h>
+#include "../aven.h"
 #include "arena.h"
 #include "str.h"
 
@@ -14,7 +14,188 @@
 #ifdef _WIN32
     //typedef void *AvenBuildFD;
     typedef void *AvenBuildPID;
+#else
+    //typedef int AvenBuildFD;
+    typedef int AvenBuildPID;
+#endif
 
+typedef enum {
+    AVEN_BUILD_STEP_STATE_NONE = 0,
+    AVEN_BUILD_STEP_STATE_RUNNING,
+    AVEN_BUILD_STEP_STATE_DONE,
+} AvenBuildStepState;
+
+typedef enum {
+    AVEN_BUILD_STEP_TYPE_ROOT = 0,
+    AVEN_BUILD_STEP_TYPE_CMD,
+    AVEN_BUILD_STEP_TYPE_RM,
+    AVEN_BUILD_STEP_TYPE_RMDIR,
+    AVEN_BUILD_STEP_TYPE_TOUCH,
+    AVEN_BUILD_STEP_TYPE_MKDIR,
+} AvenBuildStepType;
+
+typedef Slice(char *) AvenBuildCmdSlice;
+
+typedef union {
+    AvenBuildCmdSlice cmd;
+    char *rm;
+    char *rmdir;
+} AvenBuildStepData;
+
+typedef struct AvenBuildStepNode AvenBuildStepNode;
+
+typedef Optional(char *) AvenBuildOptionalPath;
+
+typedef struct AvenBuildStep {
+    AvenBuildStepNode *dep;
+
+    AvenBuildStepState state;
+    AvenBuildPID pid;
+
+    AvenBuildStepType type;
+    AvenBuildStepData data;
+
+    AvenBuildOptionalPath out_path;
+} AvenBuildStep;
+
+struct AvenBuildStepNode {
+    AvenBuildStepNode *next;
+    AvenBuildStep *step;
+};
+
+typedef Result(AvenBuildPID) AvenBuildPIDResult;
+typedef enum {
+    AVEN_BUILD_CMD_ERROR_NONE = 0,
+    AVEN_BUILD_CMD_ERROR_ALLOC,
+    AVEN_BUILD_CMD_ERROR_FORK,
+} AvenBuildRunCmdError;
+
+AvenBuildPIDResult aven_build_cmd_run(AvenBuildCmdSlice cmd, AvenArena arena);
+
+typedef enum {
+    AVEN_BUILD_WAIT_ERROR_NONE = 0,
+    AVEN_BUILD_WAIT_ERROR_WAIT,
+    AVEN_BUILD_WAIT_ERROR_GETCODE,
+    AVEN_BUILD_WAIT_ERROR_PROCESS,
+    AVEN_BUILD_WAIT_ERROR_SIGNAL,
+} AvenBuildWaitError;
+
+int aven_build_wait(AvenBuildPID pid);
+
+static inline AvenBuildStep aven_build_step_cmd_from_slice(
+    AvenBuildOptionalPath out_path,
+    AvenBuildCmdSlice cmd_slice
+) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_CMD,
+        .data = { .cmd = cmd_slice },
+        .out_path = out_path,
+    };
+}
+
+static inline AvenBuildStep aven_build_step_root(void) {
+    return (AvenBuildStep){ .type = AVEN_BUILD_STEP_TYPE_ROOT };
+}
+
+static inline AvenBuildStep aven_build_step_cmd(
+    AvenBuildOptionalPath out_path,
+    char *cmd_str,
+    ...
+) {
+    char *cmd_data[AVEN_BUILD_MAX_ARGS];
+    AvenBuildCmdSlice cmd = { .len = 0, .ptr = cmd_data };
+
+    cmd_data[0] = cmd_str;
+    cmd.len += 1;
+
+    va_list args;
+    va_start(args, cmd_str);
+    for (
+        char *cstr = va_arg(args, char *);
+        cstr != NULL;
+        cstr = va_arg(args, char *)
+    ) {
+        cmd_data[cmd.len] = cstr;
+        cmd.len += 1;
+    }
+    va_end(args);
+
+    return aven_build_step_cmd_from_slice(out_path, cmd);
+}
+
+static inline AvenBuildStep aven_build_step_mkdir(char *dir_path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_MKDIR,
+        .out_path = { .valid = true, .value = dir_path },
+    };
+}
+
+static inline AvenBuildStep aven_build_step_touch(char *file_path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_TOUCH,
+        .out_path = { .valid = true, .value = file_path },
+    };
+}
+
+static inline AvenBuildStep aven_build_step_rm(char *file_path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_RM,
+        .data = { .rm = file_path },
+    };
+}
+
+static inline  AvenBuildStep aven_build_step_rmdir(char *dir_path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_RMDIR,
+        .data = { .rmdir = dir_path },
+    };
+}
+
+typedef enum {
+    AVEN_BUILD_STEP_ADD_DEP_ERROR_NONE = 0,
+    AVEN_BUILD_STEP_ADD_DEP_ERROR_ALLOC,
+} AvenBuildStepAddDepError;
+
+static inline void aven_build_step_add_dep(
+    AvenBuildStep *step,
+    AvenBuildStep *dep,
+    AvenArena *arena
+) {
+    AvenBuildStepNode *node = aven_arena_create(
+        AvenBuildStepNode,
+        arena
+    );
+    assert(node != NULL);
+
+    *node = (AvenBuildStepNode){
+        .next = step->dep,
+        .step = dep,
+    };
+    step->dep = node;
+}
+
+typedef enum {
+    AVEN_BUILD_STEP_RUN_ERROR_NONE = 0,
+    AVEN_BUILD_STEP_RUN_ERROR_DEPRUN,
+    AVEN_BUILD_STEP_RUN_ERROR_DEPWAIT,
+    AVEN_BUILD_STEP_RUN_ERROR_CMD,
+    AVEN_BUILD_STEP_RUN_ERROR_RM,
+    AVEN_BUILD_STEP_RUN_ERROR_RMDIR,
+    AVEN_BUILD_STEP_RUN_ERROR_TOUCH,
+    AVEN_BUILD_STEP_RUN_ERROR_MKDIR,
+    AVEN_BUILD_STEP_RUN_ERROR_OUTPATH,
+    AVEN_BUILD_STEP_RUN_ERROR_BADTYPE,
+} AvenBuildStepRunError;
+
+int aven_build_step_run(AvenBuildStep *step, AvenArena arena);
+void aven_build_step_clean(AvenBuildStep *step);
+void aven_build_step_reset(AvenBuildStep *step);
+
+#if defined(AVEN_BUILD_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+
+#include <stdlib.h>
+
+#ifdef _WIN32
     typedef struct {
         uint32_t len;
         void *security_descriptor;
@@ -93,63 +274,9 @@
     #include <sys/types.h>
     #include <sys/wait.h>
     #include <unistd.h>
-
-    //typedef int AvenBuildFD;
-    typedef pid_t AvenBuildPID;
 #endif
 
-typedef enum {
-    AVEN_BUILD_STEP_STATE_NONE = 0,
-    AVEN_BUILD_STEP_STATE_RUNNING,
-    AVEN_BUILD_STEP_STATE_DONE,
-} AvenBuildStepState;
-
-typedef enum {
-    AVEN_BUILD_STEP_TYPE_ROOT = 0,
-    AVEN_BUILD_STEP_TYPE_CMD,
-    AVEN_BUILD_STEP_TYPE_RM,
-    AVEN_BUILD_STEP_TYPE_RMDIR,
-    AVEN_BUILD_STEP_TYPE_TOUCH,
-    AVEN_BUILD_STEP_TYPE_MKDIR,
-} AvenBuildStepType;
-
-typedef Slice(char *) AvenBuildCmdSlice;
-
-typedef union {
-    AvenBuildCmdSlice cmd;
-    char *rm;
-    char *rmdir;
-} AvenBuildStepData;
-
-typedef struct AvenBuildStepNode AvenBuildStepNode;
-
-typedef Optional(char *) AvenBuildOptionalPath;
-
-typedef struct AvenBuildStep {
-    AvenBuildStepNode *dep;
-
-    AvenBuildStepState state;
-    AvenBuildPID pid;
-
-    AvenBuildStepType type;
-    AvenBuildStepData data;
-
-    AvenBuildOptionalPath out_path;
-} AvenBuildStep;
-
-struct AvenBuildStepNode {
-    AvenBuildStepNode *next;
-    AvenBuildStep *step;
-};
-
-typedef Result(AvenBuildPID) AvenBuildPIDResult;
-typedef enum {
-    AVEN_BUILD_CMD_ERROR_NONE = 0,
-    AVEN_BUILD_CMD_ERROR_ALLOC,
-    AVEN_BUILD_CMD_ERROR_FORK,
-} AvenBuildRunCmdError;
-
-static AvenBuildPIDResult aven_build_cmd_run(
+AvenBuildPIDResult aven_build_cmd_run(
     AvenBuildCmdSlice cmd,
     AvenArena arena
 ) {
@@ -216,10 +343,7 @@ static AvenBuildPIDResult aven_build_cmd_run(
             (cmd.len + 1) * sizeof(*args),
             16
         );
-        if (args == NULL) {
-            fprintf(stderr, "out of memory: %s\n", cmd_str.ptr);
-            exit(1);
-        }
+        assert(args != NULL);
 
         for (size_t i = 0; i < cmd.len; i += 1) {
             args[i] = slice_get(cmd, i);
@@ -236,14 +360,6 @@ static AvenBuildPIDResult aven_build_cmd_run(
     return (AvenBuildPIDResult){ .payload = cmd_pid };
 #endif
 }
-
-typedef enum {
-    AVEN_BUILD_WAIT_ERROR_NONE = 0,
-    AVEN_BUILD_WAIT_ERROR_WAIT,
-    AVEN_BUILD_WAIT_ERROR_GETCODE,
-    AVEN_BUILD_WAIT_ERROR_PROCESS,
-    AVEN_BUILD_WAIT_ERROR_SIGNAL,
-} AvenBuildWaitError;
 
 int aven_build_wait(AvenBuildPID pid) {
 #ifdef _WIN32
@@ -287,98 +403,6 @@ int aven_build_wait(AvenBuildPID pid) {
     return 0;
 }
 
-static inline AvenBuildStep aven_build_step_cmd_from_slice(
-    AvenBuildOptionalPath out_path,
-    AvenBuildCmdSlice cmd_slice
-) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_CMD,
-        .data = { .cmd = cmd_slice },
-        .out_path = out_path,
-    };
-}
-
-static inline AvenBuildStep aven_build_step_root(void) {
-    return (AvenBuildStep){ .type = AVEN_BUILD_STEP_TYPE_ROOT };
-}
-
-static inline AvenBuildStep aven_build_step_cmd(
-    AvenBuildOptionalPath out_path,
-    char *cmd_str,
-    ...
-) {
-    char *cmd_data[AVEN_BUILD_MAX_ARGS];
-    AvenBuildCmdSlice cmd = { .len = 0, .ptr = cmd_data };
-
-    cmd_data[0] = cmd_str;
-    cmd.len += 1;
-
-    va_list args;
-    va_start(args, cmd_str);
-    for (
-        char *cstr = va_arg(args, char *);
-        cstr != NULL;
-        cstr = va_arg(args, char *)
-    ) {
-        cmd_data[cmd.len] = cstr;
-        cmd.len += 1;
-    }
-    va_end(args);
-
-    return aven_build_step_cmd_from_slice(out_path, cmd);
-}
-
-static inline AvenBuildStep aven_build_step_mkdir(char *dir_path) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_MKDIR,
-        .out_path = { .valid = true, .value = dir_path },
-    };
-}
-
-static inline AvenBuildStep aven_build_step_touch(char *file_path) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_TOUCH,
-        .out_path = { .valid = true, .value = file_path },
-    };
-}
-
-static inline AvenBuildStep aven_build_step_rm(char *file_path) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_RM,
-        .data = { .rm = file_path },
-    };
-}
-
-static inline  AvenBuildStep aven_build_step_rmdir(char *dir_path) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_RMDIR,
-        .data = { .rmdir = dir_path },
-    };
-}
-
-typedef enum {
-    AVEN_BUILD_STEP_ADD_DEP_ERROR_NONE = 0,
-    AVEN_BUILD_STEP_ADD_DEP_ERROR_ALLOC,
-} AvenBuildStepAddDepError;
-
-static void aven_build_step_add_dep(
-    AvenBuildStep *step,
-    AvenBuildStep *dep,
-    AvenArena *arena
-) {
-    AvenBuildStepNode *node = aven_arena_create(
-        AvenBuildStepNode,
-        arena
-    );
-    assert(node != NULL);
-
-    *node = (AvenBuildStepNode){
-        .next = step->dep,
-        .step = dep,
-    };
-    step->dep = node;
-}
-
 static void aven_build_rmdir(char *file) {
 #ifdef _WIN32
     _rmdir(file);
@@ -397,20 +421,7 @@ static int aven_build_step_wait(AvenBuildStep *step) {
     return error;
 }
 
-typedef enum {
-    AVEN_BUILD_STEP_RUN_ERROR_NONE = 0,
-    AVEN_BUILD_STEP_RUN_ERROR_DEPRUN,
-    AVEN_BUILD_STEP_RUN_ERROR_DEPWAIT,
-    AVEN_BUILD_STEP_RUN_ERROR_CMD,
-    AVEN_BUILD_STEP_RUN_ERROR_RM,
-    AVEN_BUILD_STEP_RUN_ERROR_RMDIR,
-    AVEN_BUILD_STEP_RUN_ERROR_TOUCH,
-    AVEN_BUILD_STEP_RUN_ERROR_MKDIR,
-    AVEN_BUILD_STEP_RUN_ERROR_OUTPATH,
-    AVEN_BUILD_STEP_RUN_ERROR_BADTYPE,
-} AvenBuildStepRunError;
-
-static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
+int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
     if (step->state != AVEN_BUILD_STEP_STATE_NONE) {
         return 0;
     }
@@ -496,7 +507,7 @@ static int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
     return 0;
 }
 
-static void aven_build_step_clean(AvenBuildStep *step) {
+void aven_build_step_clean(AvenBuildStep *step) {
     if (step->out_path.valid) {
         remove(step->out_path.value);
         aven_build_rmdir(step->out_path.value);
@@ -508,7 +519,7 @@ static void aven_build_step_clean(AvenBuildStep *step) {
     }
 }
 
-static void aven_build_step_reset(AvenBuildStep *step) {
+void aven_build_step_reset(AvenBuildStep *step) {
     step->state = AVEN_BUILD_STEP_STATE_NONE;
 
     for (AvenBuildStepNode *dep = step->dep; dep != NULL; dep = dep->next) {
@@ -547,5 +558,7 @@ static void aven_build_step_reset(AvenBuildStep *step) {
 //#endif
 //    return (AvenBuildPipeResult){ .payload = p };
 //}
+
+#endif // AVEN_BUILD_IMPLEMENTATOIN
 
 #endif // AVEN_BUILD_H

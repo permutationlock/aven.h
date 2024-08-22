@@ -1,10 +1,16 @@
 #ifndef AVEN_DL_H
 #define AVEN_DL_H
 
-#include <aven.h>
+#include "../aven.h"
 #include "str.h"
 
 #define AVEN_DL_MAX_PATH_LEN 1024
+
+void *aven_dl_open(char *fname);
+void *aven_dl_sym(void *handle, const char *symbol);
+int aven_dl_close(void *handle);
+
+#if defined(AVEN_DL_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
 
 #ifdef _WIN32
     int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
@@ -76,5 +82,7 @@
         return dlclose(handle);
     }
 #endif
+
+#endif // AVEN_DL_IMPLEMENTATION
 
 #endif // AVEN_DL_H

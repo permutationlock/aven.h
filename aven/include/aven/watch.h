@@ -1,7 +1,7 @@
-#ifndef AVEN_WATCh_H
-#define AVEN_WATCh_H
+#ifndef AVEN_WATCH_H
+#define AVEN_WATCH_H
 
-#include <aven.h>
+#include "../aven.h"
 
 #define AVEN_WATCH_MAX_HANDLES 64
 
@@ -9,11 +9,24 @@
     typedef void *AvenWatchHandle;
     typedef Slice(AvenWatchHandle) AvenWatchHandleSlice;
 
+    #define AVEN_WATCH_HANDLE_INVALID ((AvenWatchHandle)-1L)
+#else
+    typedef int AvenWatchHandle;
+    typedef Slice(AvenWatchHandle) AvenWatchHandleSlice;
+
+    #define AVEN_WATCH_HANDLE_INVALID -1
+#endif
+
+AvenWatchHandle aven_watch_init(const char *dirname);
+bool aven_watch_check(AvenWatchHandle handle, int timeout);
+void aven_watch_deinit(AvenWatchHandle handle);
+
+#if defined(AVEN_WATCH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+
+#ifdef _WIN32
     #ifndef WIN_INFINITE
         #define WIN_INFINITE 0xffffffff
     #endif
-
-    #define AVEN_WATCH_HANDLE_INVALID ((AvenWatchHandle)-1L)
 
     AvenWatchHandle FindFirstChangeNotificationA(
         const char *path_name,
@@ -79,11 +92,6 @@
     #include <sys/inotify.h>
     #include <unistd.h>
 
-    typedef int AvenWatchHandle;
-    typedef Slice(AvenWatchHandle) AvenWatchHandleSlice;
-
-    #define AVEN_WATCH_HANDLE_INVALID -1
-
     AvenWatchHandle aven_watch_init(const char *dirname) {
         AvenWatchHandle handle = inotify_init();
         if (handle < 0) {
@@ -142,4 +150,6 @@
     }
 #endif
 
-#endif // AVEN_WATCh_H
+#endif // AVEN_WATCH_IMPLEMENTATION
+
+#endif // AVEN_WATCH_H
