@@ -1,2 +1,2 @@
-char message[] = "Hot damn!";
+char message[] = "Oh mama!";
 

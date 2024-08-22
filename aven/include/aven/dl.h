@@ -4,7 +4,7 @@
 #include "../aven.h"
 #include "str.h"
 
-#define AVEN_DL_MAX_PATH_LEN 1024
+#define AVEN_DL_MAX_PATH_LEN 4096
 
 void *aven_dl_open(char *fname);
 void *aven_dl_sym(void *handle, const char *symbol);
@@ -13,33 +13,64 @@ int aven_dl_close(void *handle);
 #if defined(AVEN_DL_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
 
 #ifdef _WIN32
+    #include "path.h"
+
     int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
     void *LoadLibraryA(const char *fname);
     void *GetProcAddress(void *handle, const char *symbol);
     int FreeLibrary(void *handle);
+    uint32_t GetTempPathA(uint32_t buffer_len, char *buffer);
     
-    const char aven_dl_loaded_suffix[] = "_aven_dl_loaded.dll";
+    const char aven_dl_suffix[] = "_aven_dl_loaded.dll";
 
     void *aven_dl_open(char *fname) {
-        size_t fname_len = (size_t)strlen(fname);
-        assert(fname_len < AVEN_DL_MAX_PATH_LEN);
+        AvenStr fname_str =aven_str_from_cstr(fname);
+        assert(fname_str.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 5];
 
-        memcpy(buffer, fname, fname_len);
-        buffer[fname_len] = '.';
-        buffer[fname_len + 1] = 'd';
-        buffer[fname_len + 2] = 'l';
-        buffer[fname_len + 3] = 'l';
-        buffer[fname_len + 4] = '\0';
+        memcpy(buffer, fname_str.ptr, fname_str.len);
+        buffer[fname_str.len] = '.';
+        buffer[fname_str.len + 1] = 'd';
+        buffer[fname_str.len + 2] = 'l';
+        buffer[fname_str.len + 3] = 'l';
+        buffer[fname_str.len + 4] = '\0';
 
-        char temp_buffer[sizeof(aven_dl_loaded_suffix) + sizeof(buffer)];
-        memcpy(temp_buffer, buffer, fname_len);
-        memcpy(
-            &temp_buffer[fname_len],
-            aven_dl_loaded_suffix,
-            sizeof(aven_dl_loaded_suffix)
-        );
+        char temp_buffer[
+            AVEN_DL_MAX_PATH_LEN +
+            sizeof(aven_dl_suffix) +
+            sizeof(buffer)
+        ];
+        uint32_t temp_path_len = GetTempPathA(AVEN_DL_MAX_PATH_LEN, temp_buffer);
+        if (temp_path_len == 0) {
+            // If we can't create a temp file, just make one in this directory
+            memcpy(temp_buffer, buffer, fname_str.len);
+            memcpy(
+                &temp_buffer[fname_str.len],
+                aven_dl_suffix,
+                sizeof(aven_dl_suffix)
+            );
+        } else {
+            if (temp_buffer[temp_path_len - 1] != AVEN_PATH_SEP) {
+                temp_buffer[temp_path_len] = AVEN_PATH_SEP;
+                temp_path_len += 1;
+            }
+            char arena_buffer[AVEN_DL_MAX_PATH_LEN];
+            AvenArena carena = aven_arena_init(
+                arena_buffer,
+                sizeof(arena_buffer)
+            );
+            char *libname = aven_path_fname(fname_str.ptr, &carena);
+            assert(libname != NULL);
+            AvenStr libname_str = aven_str_from_cstr(libname);
+            memcpy(&temp_buffer[temp_path_len], libname, libname_str.len);
+            temp_path_len += libname_str.len;
+            memcpy(
+                &temp_buffer[temp_path_len],
+                aven_dl_suffix,
+                sizeof(aven_dl_suffix)
+            );
+        }
 
         int success = CopyFileA(buffer, temp_buffer, false);
         if (success == 0) {
@@ -60,16 +91,16 @@ int aven_dl_close(void *handle);
     #include <dlfcn.h>
 
     void *aven_dl_open(char *fname) {
-        size_t fname_len = (size_t)strlen(fname);
-        assert(fname_len < AVEN_DL_MAX_PATH_LEN);
+        AvenStr fname_str = aven_str_from_cstr(fname);
+        assert(fname_str.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 4];
-        memcpy(buffer, fname, fname_len);
+        memcpy(buffer, fname_str.ptr, fname_str.len);
 
-        buffer[fname_len] = '.';
-        buffer[fname_len + 1] = 's';
-        buffer[fname_len + 2] = 'o';
-        buffer[fname_len + 3] = 0;
+        buffer[fname_str.len] = '.';
+        buffer[fname_str.len + 1] = 's';
+        buffer[fname_str.len + 2] = 'o';
+        buffer[fname_str.len + 3] = 0;
 
         return dlopen(buffer, RTLD_LAZY);
     }
