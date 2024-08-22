@@ -2,6 +2,7 @@
 #define AVEN_WATCH_H
 
 #include "../aven.h"
+#include "str.h"
 
 #define AVEN_WATCH_MAX_HANDLES 64
 
@@ -17,7 +18,7 @@
     #define AVEN_WATCH_HANDLE_INVALID -1
 #endif
 
-AvenWatchHandle aven_watch_init(const char *dirname);
+AvenWatchHandle aven_watch_init(AvenStr dirname);
 bool aven_watch_check(AvenWatchHandle handle, int timeout);
 void aven_watch_deinit(AvenWatchHandle handle);
 
@@ -42,8 +43,12 @@ void aven_watch_deinit(AvenWatchHandle handle);
         uint32_t timeout_ms
     );
 
-    AvenWatchHandle aven_watch_init(const char *dirname) {
-        return FindFirstChangeNotificationA(dirname, 0, 0x1 | 0x2 | 0x8 | 0x10);
+    AvenWatchHandle aven_watch_init(AvenStr dirname) {
+        return FindFirstChangeNotificationA(
+            dirname.ptr,
+            0,
+            0x1 | 0x2 | 0x8 | 0x10
+        );
     }
 
     bool aven_watch_check_multiple(AvenWatchHandleSlice handles, int timeout) {
@@ -92,7 +97,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
     #include <sys/inotify.h>
     #include <unistd.h>
 
-    AvenWatchHandle aven_watch_init(const char *dirname) {
+    AvenWatchHandle aven_watch_init(AvenStr dirname) {
         AvenWatchHandle handle = inotify_init();
         if (handle < 0) {
             return AVEN_WATCH_HANDLE_INVALID;
@@ -100,7 +105,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
 
         int result = inotify_add_watch(
             handle,
-            dirname, 
+            dirname.ptr, 
             IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY
         );
         if (result <= 0) {

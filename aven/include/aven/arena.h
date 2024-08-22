@@ -57,9 +57,8 @@ void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align) {
     );
     unsigned char *mem = arena->top - size;
     size_t padding = (size_t)((uintptr_t)mem & (align - 1));
-    if ((arena->top - arena->base) < (ptrdiff_t)(size + padding)) {
-        return NULL;
-    }
+    assert((arena->top - arena->base) >= (ptrdiff_t)(size + padding));
+
     arena->top = mem - padding;
     return arena->top;
 }

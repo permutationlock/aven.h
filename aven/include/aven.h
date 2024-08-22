@@ -47,6 +47,7 @@
 #define Optional(t) struct { t value; bool valid; }
 #define Result(t) struct { t payload; int error; }
 #define Slice(t) struct { t *ptr; size_t len; }
+#define List(t, n) struct { size_t len; t array[n]; }
 
 typedef Slice(unsigned char) ByteSlice;
 
@@ -62,6 +63,7 @@ typedef Slice(unsigned char) ByteSlice;
 #endif
 
 #define slice_get(s, i) s.ptr[aven_assert_lt_internal(i, s.len)]
+#define list_get(l, i) l.array[aven_assert_lt_internal(i, l.len)]
 
 #define as_bytes(ptr) (ByteSlice){ \
         .ptr = (unsigned char *)ptr, \

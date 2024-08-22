@@ -23,27 +23,38 @@ int main(void) {
     printf("\tcollatz(%d) = %d\n", 5, collatz(5));
     printf("\tfibonacci(%d) = %d\n", 5, fibonacci(5));
 
-    char *cwd_path = aven_path_dir(aven_path_exe(&arena), &arena);
+    AvenStr exe_path = aven_str(".");
 
-    char *deplock_path = aven_path(&arena, cwd_path, "deplock", NULL);
-    char *libhot_path = aven_path(&arena, cwd_path, "dep", "libhot", NULL);
+    AvenPathResult exe_path_result = aven_path_exe(&arena);
+    if (exe_path_result.error == 0) {
+        exe_path = aven_path_dir(exe_path_result.payload, &arena);
+    }
+
+    AvenStr deplock_path = aven_path(&arena, exe_path.ptr, "deplock", NULL);
+    AvenStr libhot_path = aven_path(
+        &arena,
+        exe_path.ptr,
+        "dep",
+        "libhot",
+        NULL
+    );
 
     AvenWatchHandle lock_handle = aven_watch_init(deplock_path);
     if (lock_handle == AVEN_WATCH_HANDLE_INVALID) {
-        fprintf(stderr, "failed to watch %s", deplock_path);
+        fprintf(stderr, "failed to watch %s", deplock_path.ptr);
         return 1;
     }
 
     for (;;) {
         void *libhot = aven_dl_open(libhot_path);
         if (libhot != NULL) {
-            char *hot_message = aven_dl_sym(libhot, "message");
+            char *hot_message = aven_dl_sym(libhot, aven_str("message"));
             if (hot_message != NULL) {
                 printf("%s\n", hot_message);
             }
             aven_dl_close(libhot);
         } else {
-            fprintf(stderr, "failed to load %s: %d\n", libhot_path, errno);
+            fprintf(stderr, "failed to load %s: %d\n", libhot_path.ptr, errno);
         }
         aven_watch_check(lock_handle, -1);
     }

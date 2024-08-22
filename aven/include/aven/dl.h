@@ -6,8 +6,8 @@
 
 #define AVEN_DL_MAX_PATH_LEN 4096
 
-void *aven_dl_open(char *fname);
-void *aven_dl_sym(void *handle, const char *symbol);
+void *aven_dl_open(AvenStr fname);
+void *aven_dl_sym(void *handle, AvenStr symbol);
 int aven_dl_close(void *handle);
 
 #if defined(AVEN_DL_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
@@ -23,18 +23,18 @@ int aven_dl_close(void *handle);
     
     const char aven_dl_suffix[] = "_aven_dl_loaded.dll";
 
-    void *aven_dl_open(char *fname) {
-        AvenStr fname_str =aven_str_from_cstr(fname);
-        assert(fname_str.len < AVEN_DL_MAX_PATH_LEN);
+    void *aven_dl_open(AvenStr fname) {
+        assert(fname.len > 0);
+        assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 5];
 
-        memcpy(buffer, fname_str.ptr, fname_str.len);
-        buffer[fname_str.len] = '.';
-        buffer[fname_str.len + 1] = 'd';
-        buffer[fname_str.len + 2] = 'l';
-        buffer[fname_str.len + 3] = 'l';
-        buffer[fname_str.len + 4] = '\0';
+        memcpy(buffer, fname.ptr, fname.len);
+        buffer[fname.len] = '.';
+        buffer[fname.len + 1] = 'd';
+        buffer[fname.len + 2] = 'l';
+        buffer[fname.len + 3] = 'l';
+        buffer[fname.len + 4] = '\0';
 
         char temp_buffer[
             AVEN_DL_MAX_PATH_LEN +
@@ -44,9 +44,9 @@ int aven_dl_close(void *handle);
         uint32_t temp_path_len = GetTempPathA(AVEN_DL_MAX_PATH_LEN, temp_buffer);
         if (temp_path_len == 0) {
             // If we can't create a temp file, just make one in this directory
-            memcpy(temp_buffer, buffer, fname_str.len);
+            memcpy(temp_buffer, buffer, fname.len);
             memcpy(
-                &temp_buffer[fname_str.len],
+                &temp_buffer[fname.len],
                 aven_dl_suffix,
                 sizeof(aven_dl_suffix)
             );
@@ -60,11 +60,9 @@ int aven_dl_close(void *handle);
                 arena_buffer,
                 sizeof(arena_buffer)
             );
-            char *libname = aven_path_fname(fname_str.ptr, &carena);
-            assert(libname != NULL);
-            AvenStr libname_str = aven_str_from_cstr(libname);
-            memcpy(&temp_buffer[temp_path_len], libname, libname_str.len);
-            temp_path_len += libname_str.len;
+            AvenStr libname = aven_path_fname(fname, &carena);
+            memcpy(&temp_buffer[temp_path_len], libname.ptr, libname.len);
+            temp_path_len += libname.len;
             memcpy(
                 &temp_buffer[temp_path_len],
                 aven_dl_suffix,
@@ -80,8 +78,9 @@ int aven_dl_close(void *handle);
         return LoadLibraryA(temp_buffer);
     }
 
-    void *aven_dl_sym(void *handle, const char *symbol) {
-        return GetProcAddress(handle, symbol);
+    void *aven_dl_sym(void *handle, AvenStr symbol) {
+        assert(symbol.len > 0);
+        return GetProcAddress(handle, symbol.ptr);
     }
 
     int aven_dl_close(void *handle) {
@@ -90,23 +89,24 @@ int aven_dl_close(void *handle);
 #else
     #include <dlfcn.h>
 
-    void *aven_dl_open(char *fname) {
-        AvenStr fname_str = aven_str_from_cstr(fname);
-        assert(fname_str.len < AVEN_DL_MAX_PATH_LEN);
+    void *aven_dl_open(AvenStr fname) {
+        assert(fname.len > 0);
+        assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 4];
-        memcpy(buffer, fname_str.ptr, fname_str.len);
+        memcpy(buffer, fname.ptr, fname.len);
 
-        buffer[fname_str.len] = '.';
-        buffer[fname_str.len + 1] = 's';
-        buffer[fname_str.len + 2] = 'o';
-        buffer[fname_str.len + 3] = 0;
+        buffer[fname.len] = '.';
+        buffer[fname.len + 1] = 's';
+        buffer[fname.len + 2] = 'o';
+        buffer[fname.len + 3] = 0;
 
         return dlopen(buffer, RTLD_LAZY);
     }
 
-    void *aven_dl_sym(void *handle, const char *symbol) {
-        return dlsym(handle, symbol);
+    void *aven_dl_sym(void *handle, AvenStr symbol) {
+        assert(symbol.len > 0);
+        return dlsym(handle, symbol.ptr);
     }
 
     int aven_dl_close(void *handle) {

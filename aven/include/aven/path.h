@@ -16,10 +16,13 @@
     #define AVEN_PATH_SEP '/'
 #endif
 
-char *aven_path(AvenArena *arena, char *path_str, ...);
-char *aven_path_dir(char *path, AvenArena *arena);
-char *aven_path_fname(char *path, AvenArena *arena);
-char *aven_path_exe(AvenArena *arena);
+AvenStr aven_path(AvenArena *arena, char *path_str, ...);
+AvenStr aven_path_dir(AvenStr path, AvenArena *arena);
+AvenStr aven_path_fname(AvenStr path, AvenArena *arena);
+
+typedef Result(AvenStr) AvenPathResult;
+
+AvenPathResult aven_path_exe(AvenArena *arena);
 
 #if defined(AVEN_PATH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
 
@@ -29,11 +32,11 @@ char *aven_path_exe(AvenArena *arena);
     #include <unistd.h>
 #endif
 
-char *aven_path(AvenArena *arena, char *path_str, ...) {
+AvenStr aven_path(AvenArena *arena, char *path_str, ...) {
     AvenStr path_data[AVEN_PATH_MAX_ARGS];
     AvenStrSlice path = { .len = 0, .ptr = path_data };
 
-    path_data[0] = aven_str_from_cstr(path_str);
+    path_data[0] = aven_str_cstr(path_str);
     path.len += 1;
 
     va_list args;
@@ -43,98 +46,97 @@ char *aven_path(AvenArena *arena, char *path_str, ...) {
         cstr != NULL;
         cstr = va_arg(args, char *)
     ) {
-        path_data[path.len] = aven_str_from_cstr(cstr);
+        path_data[path.len] = aven_str_cstr(cstr);
         path.len += 1;
     }
     va_end(args);
 
-    AvenStrResult result = aven_str_join(
+    return aven_str_join(
         path,
         AVEN_PATH_SEP,
         arena
     );
-    assert(result.error == 0);
-
-    return result.payload.ptr;
 }
 
-char *aven_path_dir(char *path, AvenArena *arena) {
-    size_t path_len = strlen(path);
+AvenStr aven_path_dir(AvenStr path, AvenArena *arena) {
     size_t i;
-    for (i = path_len; i > 0; i -= 1) {
-        if (path[i - 1] == AVEN_PATH_SEP) {
+    for (i = path.len; i > 0; i -= 1) {
+        if (slice_get(path, i - 1) == AVEN_PATH_SEP) {
             break;
         }
     }
     if (i == 0) {
-        return "";
+        return aven_str("");
     }
-    if (i == path_len) {
+    if (i == path.len) {
         return path;
     }
-    char *dir_path = aven_arena_alloc(arena, i, 1);
-    if (dir_path == NULL) {
-        return NULL;
-    }
-    memcpy(dir_path, path, i - 1);
-    dir_path[i - 1] = 0;
-    return dir_path;
+    AvenStr dir = { .len = i };
+    dir.ptr =  aven_arena_alloc(arena, dir.len, 1),
+
+    path.len = i - 1;
+    slice_copy(dir, path);
+    slice_get(dir, i - 1) = 0;
+
+    return dir;
 }
 
-char *aven_path_fname(char *path, AvenArena *arena) {
-    size_t path_len = strlen(path);
+AvenStr aven_path_fname(AvenStr path, AvenArena *arena) {
     size_t i;
-    for (i = path_len; i > 0; i -= 1) {
-        if (path[i - 1] == AVEN_PATH_SEP) {
+    for (i = path.len; i > 0; i -= 1) {
+        if (slice_get(path, i - 1) == AVEN_PATH_SEP) {
             break;
         }
     }
     if (i == 0) {
         return path;
     }
-    if (i == path_len) {
-        return "";
+    if (i == path.len) {
+        return aven_str("");
     }
-    size_t fname_len = path_len - i + 1;
-    char *fname = aven_arena_alloc(arena, fname_len, 1);
-    if (fname == NULL) {
-        return NULL;
-    }
-    memcpy(fname, path + i, fname_len);
-    fname[fname_len - 1] = 0;
+    AvenStr fname = { .len = path.len - i + 1 };
+    fname.ptr = aven_arena_alloc(arena, fname.len, 1);
+
+    path.ptr += i;
+    path.len -= i;
+    slice_copy(fname, path);
+    slice_get(fname, fname.len - 1) = 0;
+
     return fname;
 }
 
-char *aven_path_exe(AvenArena *arena) {
+AvenPathResult aven_path_exe(AvenArena *arena) {
 #ifdef _WIN32
     char buffer[AVEN_PATH_MAX_LEN];
     uint32_t len = GetModuleFileNameA(NULL, buffer, countof(buffer));
-    if (len == 0 or len == countof(buffer)) {
-        return NULL;
+    if (len <= 0 or len == countof(buffer)) {
+        return (AvenPathResult){ .error = 1 };
     }
-    char *path_str = aven_arena_alloc(arena, (size_t)len + 1, 1);
-    if (path_str == NULL) {
-        return NULL;
-    }
-    memcpy(path_str, buffer, (size_t)len);
-    path_str[len] = 0;
-    return path_str;
+
+    AvenStr path = { .len = len + 1 };
+    path.ptr = aven_arena_alloc(arena, path.len, 1);
+
+    memcpy(path.ptr, buffer, path.len - 1);
+    slice_get(path, path.len - 1) = 0;
+
+    return (AvenPathResult){ .payload = path };
 #elif defined(__linux__)
     char buffer[AVEN_PATH_MAX_LEN];
     ssize_t len = readlink("/proc/self/exe", buffer, countof(buffer));
-    if (len < 0 or len == countof(buffer)) {
-        return NULL;
+    if (len <= 0 or len == countof(buffer)) {
+        return (AvenPathResult){ .error = 1 };
     }
-    char *path_str = aven_arena_alloc(arena, (size_t)len + 1, 1);
-    if (path_str == NULL) {
-        return NULL;
-    }
-    memcpy(path_str, buffer, (size_t)len);
-    path_str[len] = 0;
-    return path_str;
+
+    AvenStr path = { .len = (size_t)len + 1 };
+    path.ptr = aven_arena_alloc(arena, path.len, 1);
+
+    memcpy(path.ptr, buffer, path.len - 1);
+    slice_get(path, path.len - 1) = 0;
+
+    return (AvenPathResult){ .payload = path };
 #else
     assert(false);
-    return NULL;
+    return (AvenStr){ 0 };
 #endif
 }
 

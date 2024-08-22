@@ -6,8 +6,6 @@
 
 typedef struct timespec AvenTimeSpec;
 
-AvenTimeSpec aven_time_now(void);
-
 static inline int64_t aven_time_since(AvenTimeSpec end, AvenTimeSpec start) {
     int64_t seconds = (int64_t)end.tv_sec - (int64_t)start.tv_sec;
     int64_t sec_diff = seconds * 1000L * 1000L * 1000L;

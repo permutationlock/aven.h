@@ -5,21 +5,14 @@
 #include "arena.h"
 
 typedef Slice(char) AvenStr;
-typedef Result(AvenStr) AvenStrResult;
 typedef Slice(AvenStr) AvenStrSlice;
-typedef Result(AvenStrSlice) AvenStrSliceResult;
-
-typedef enum {
-    AVEN_STR_ERROR_NONE = 0,
-    AVEN_STR_ERROR_ALLOC,
-} AvenStrError;
 
 #define aven_str(a) (AvenStr){ \
         .ptr = a, \
         .len = sizeof(a) - 1 \
     }
 
-static inline AvenStr aven_str_from_cstr(char *cstr) {
+static inline AvenStr aven_str_cstr(char *cstr) {
     size_t len = 0;
     for (char *c = cstr; *c != 0; c += 1) {
         len += 1;
@@ -39,7 +32,7 @@ static inline bool aven_str_compare(AvenStr s1, AvenStr s2) {
     return true;
 }
 
-static inline AvenStrSliceResult aven_str_split(
+static inline AvenStrSlice aven_str_split(
     AvenStr str,
     char separator,
     AvenArena *arena
@@ -60,11 +53,6 @@ static inline AvenStrSliceResult aven_str_split(
         arena,
         nsep
     );
-    if (split_mem == NULL) {
-        return (AvenStrSliceResult){
-            .error = AVEN_STR_ERROR_ALLOC,
-        };
-    }
 
     AvenStrSlice split_strs = {
         .ptr = split_mem,
@@ -78,11 +66,6 @@ static inline AvenStrSliceResult aven_str_split(
             size_t len = i - after_last_sep;
             if (len > 0) {
                 char *string_mem = aven_arena_alloc(arena, len + 1, 1);
-                if (string_mem == NULL) {
-                    return (AvenStrSliceResult){
-                        .error = AVEN_STR_ERROR_ALLOC,
-                    };
-                }
 
                 slice_get(split_strs, string_index) = (AvenStr){
                     .ptr = string_mem,
@@ -98,18 +81,15 @@ static inline AvenStrSliceResult aven_str_split(
         }
     }
 
-    return (AvenStrSliceResult){ .payload = split_strs };
+    return split_strs;
 }
 
-static inline AvenStrResult aven_str_concat(
+static inline AvenStr aven_str_concat(
     AvenStr s1,
     AvenStr s2,
     AvenArena *arena
 ) {
     char *str_mem = aven_arena_alloc(arena, s1.len + s2.len + 1, 1);
-    if (str_mem == NULL) {
-        return (AvenStrResult){ .error = AVEN_STR_ERROR_ALLOC };
-    }
 
     AvenStr new_string = { .ptr = str_mem, .len = s1.len + s2.len };
     slice_copy(new_string, s1);
@@ -122,10 +102,10 @@ static inline AvenStrResult aven_str_concat(
 
     new_string.ptr[new_string.len] = 0;
 
-    return (AvenStrResult){ .payload = new_string };
+    return new_string;
 }
 
-static inline AvenStrResult aven_str_join(
+static inline AvenStr aven_str_join(
     AvenStrSlice strings,
     char separator,
     AvenArena *arena
@@ -144,9 +124,6 @@ static inline AvenStrResult aven_str_join(
     }
    
     char *str_mem = aven_arena_alloc(arena, len + 1, 1);
-    if (str_mem == NULL) {
-        return (AvenStrResult){ .error = AVEN_STR_ERROR_ALLOC };
-    }
 
     AvenStr new_str = { .ptr = str_mem, .len = len };
     AvenStr rest_str = new_str;
@@ -171,7 +148,7 @@ static inline AvenStrResult aven_str_join(
 
     new_str.ptr[new_str.len] = 0;
 
-    return (AvenStrResult){ .payload = new_str };
+    return new_str;
 }
 
 #endif // AVEN_STR_H

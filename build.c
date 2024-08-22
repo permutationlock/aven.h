@@ -9,6 +9,7 @@
 #include "aven/include/aven/arg.h"
 #include "aven/include/aven/build.h"
 #include "aven/include/aven/path.h"
+#include "aven/include/aven/str.h"
 #include "aven/include/aven/watch.h"
 
 #include "build_common.h"
@@ -27,7 +28,9 @@ AvenArg args[countof(custom_args) + countof(default_args)];
 
 int main(int argc, char **argv) {
     void *mem = malloc(ARENA_SIZE);
-    assert(mem != NULL);
+    if (mem == NULL) {
+        fprintf(stderr, "malloc failure\n");
+    }
 
     AvenArena arena = aven_arena_init(mem, ARENA_SIZE);
 
@@ -47,31 +50,31 @@ int main(int argc, char **argv) {
     DefaultOpts opts = get_default_opts(arg_slice, &arena);
     bool watch = aven_arg_get_bool(arg_slice, "watch");
 
-    char *build_dir = "build_work";
-    char *out_dir = "build_out";
-    char *src_dir = "src";
-    char *libhot_dir = aven_path(&arena, src_dir, "libhot", NULL);
-    char *exe_fname = "print_funmath";
+    AvenStr build_dir = aven_str("build_work");
+    AvenStr out_dir = aven_str("build_out");
+    AvenStr src_dir = aven_str("src");
+    AvenStr libhot_dir = aven_path(&arena, src_dir.ptr, "libhot", NULL);
+    AvenStr exe_fname = aven_str("print_funmath");
 
     AvenBuildStep build_dir_step = aven_build_step_mkdir(build_dir);
     AvenBuildStep out_dir_step = aven_build_step_mkdir(out_dir);
 
-    char *inc_paths[] = { aven_path(&arena, "aven", "include", NULL) };
-    CStrSlice includes = { .ptr = inc_paths, .len = countof(inc_paths) };
-    CStrSlice macros = { 0 };
+    AvenStr inc_paths[] = { aven_path(&arena, "aven", "include", NULL) };
+    AvenStrSlice includes = { .ptr = inc_paths, .len = countof(inc_paths) };
+    AvenStrSlice macros = { 0 };
 
     AvenBuildStep bin_dir_step;
     {
-        char *dir_path = aven_path(&arena, out_dir, "bin", NULL);
+        AvenStr dir_path = aven_path(&arena, out_dir.ptr, "bin", NULL);
         bin_dir_step = aven_build_step_mkdir(dir_path);
         aven_build_step_add_dep(&bin_dir_step, &out_dir_step, &arena);
     }
 
     AvenBuildStep dep_dir_step;
     {
-        char *dir_path = aven_path(
+        AvenStr dir_path = aven_path(
             &arena,
-            bin_dir_step.out_path.value,
+            bin_dir_step.out_path.value.ptr,
             "dep",
             NULL
         );
@@ -81,9 +84,9 @@ int main(int argc, char **argv) {
 
     AvenBuildStep lock_dir_step;
     {
-        char *dir_path = aven_path(
+        AvenStr dir_path = aven_path(
             &arena,
-            bin_dir_step.out_path.value,
+            bin_dir_step.out_path.value.ptr,
             "deplock",
             NULL
         );
@@ -93,9 +96,9 @@ int main(int argc, char **argv) {
 
     AvenBuildStep aven_dir_step;
     {
-        char *dir_path = aven_path(
+        AvenStr dir_path = aven_path(
             &arena,
-            build_dir_step.out_path.value,
+            build_dir_step.out_path.value.ptr,
             "aven",
             NULL
         );
@@ -105,17 +108,17 @@ int main(int argc, char **argv) {
 
     AvenBuildStep aven_lib_step = build_aven_step(
         &opts,
-        "aven/include",
-        "aven/src",
+        aven_path(&arena, "aven", "include", NULL),
+        aven_path(&arena, "aven", "src", NULL),
         &aven_dir_step,
-        &build_dir_step,
+        &aven_dir_step,
         &arena
     );
 
     AvenBuildStep main_obj_step;
     {
-        char *src_path = aven_path(&arena, src_dir, "main.c", NULL);
-        char *obj_path = aven_path(&arena, build_dir, "main.o", NULL);
+        AvenStr src_path = aven_path(&arena, src_dir.ptr, "main.c", NULL);
+        AvenStr obj_path = aven_path(&arena, build_dir.ptr, "main.o", NULL);
         main_obj_step = cc_compile_obj_ex(
             &opts,
             includes,
@@ -129,21 +132,26 @@ int main(int argc, char **argv) {
 
     AvenBuildStep collatz_obj_step;
     {
-        char *src_path = aven_path(&arena, src_dir, "collatz.c", NULL);
-        char *obj_path = aven_path(&arena, build_dir, "collatz.o", NULL);
+        AvenStr src_path = aven_path(&arena, src_dir.ptr, "collatz.c", NULL);
+        AvenStr obj_path = aven_path(&arena, build_dir.ptr, "collatz.o", NULL);
         collatz_obj_step = cc_compile_obj(&opts, src_path, obj_path, &arena);
         aven_build_step_add_dep(&collatz_obj_step, &build_dir_step, &arena);
     }
 
     AvenBuildStep fibonacci_obj_step;
     {
-        char *src_path = aven_path(&arena, src_dir, "fibonacci.c", NULL);
-        char *obj_path = aven_path(&arena, build_dir, "fibonacci.o", NULL);
+        AvenStr src_path = aven_path(&arena, src_dir.ptr, "fibonacci.c", NULL);
+        AvenStr obj_path = aven_path(
+            &arena,
+            build_dir.ptr,
+            "fibonacci.o",
+            NULL
+        );
         fibonacci_obj_step = cc_compile_obj(&opts, src_path, obj_path, &arena);
         aven_build_step_add_dep(&fibonacci_obj_step, &build_dir_step, &arena);
     }
 
-    AvenBuildStep lib_step;
+    AvenBuildStep funmath_lib_step;
     {
         AvenBuildStep *dep_objs[] = {
             &collatz_obj_step,
@@ -153,24 +161,24 @@ int main(int argc, char **argv) {
             .ptr = dep_objs,
             .len = countof(dep_objs),
         };
-        char *lib_path = aven_path(&arena, build_dir, "funmath", NULL);
-        lib_step = ar_create_lib(&opts, deps, lib_path, &arena);
-        aven_build_step_add_dep(&lib_step, &build_dir_step, &arena);
+        AvenStr lib_path = aven_path(&arena, build_dir.ptr, "funmath", NULL);
+        funmath_lib_step = ar_create_lib(&opts, deps, lib_path, &arena);
+        aven_build_step_add_dep(&funmath_lib_step, &build_dir_step, &arena);
     }
 
     AvenBuildStep hot_obj_step;
     {
-        char *src_path = aven_path(&arena, libhot_dir, "hot.c", NULL);
-        char *obj_path = aven_path(&arena, build_dir, "hot.o", NULL);
+        AvenStr src_path = aven_path(&arena, libhot_dir.ptr, "hot.c", NULL);
+        AvenStr obj_path = aven_path(&arena, build_dir.ptr, "hot.o", NULL);
         hot_obj_step = cc_compile_obj(&opts, src_path, obj_path, &arena);
         aven_build_step_add_dep(&hot_obj_step, &build_dir_step, &arena);
     }
 
     AvenBuildStep build_dep_step;
     {
-        char *lock_path = aven_path(
+        AvenStr lock_path = aven_path(
             &arena,
-            lock_dir_step.out_path.value,
+            lock_dir_step.out_path.value.ptr,
             "lock",
             NULL
         );
@@ -185,9 +193,9 @@ int main(int argc, char **argv) {
             .ptr = dep_objs,
             .len = countof(dep_objs),
         };
-        char *lib_path = aven_path(
+        AvenStr lib_path = aven_path(
             &arena,
-            dep_dir_step.out_path.value,
+            dep_dir_step.out_path.value.ptr,
             "libhot",
             NULL
         );
@@ -201,16 +209,16 @@ int main(int argc, char **argv) {
         AvenBuildStep *dep_objs[] = {
             &main_obj_step,
             &aven_lib_step,
-            &lib_step,
+            &funmath_lib_step,
         };
         AvenBuildStepPtrSlice deps = {
             .ptr = dep_objs,
             .len = countof(dep_objs),
         };
-        char *exe_path = aven_path(
+        AvenStr exe_path = aven_path(
             &arena,
-            bin_dir_step.out_path.value,
-            exe_fname,
+            bin_dir_step.out_path.value.ptr,
+            exe_fname.ptr,
             NULL
         );
         link_exe_step = ld_link_exe(&opts, deps, exe_path, &arena);
@@ -226,11 +234,11 @@ int main(int argc, char **argv) {
     } else if (watch) {
         AvenWatchHandle src_handle = aven_watch_init(src_dir);
         if (src_handle == AVEN_WATCH_HANDLE_INVALID) {
-            fprintf(stderr, "couldn't watch %s\n", src_dir);
+            fprintf(stderr, "couldn't watch %s\n", src_dir.ptr);
         }
         AvenWatchHandle libhot_handle = aven_watch_init(libhot_dir);
         if (libhot_handle == AVEN_WATCH_HANDLE_INVALID) {
-            fprintf(stderr, "couldn't watch %s\n", libhot_dir);
+            fprintf(stderr, "couldn't watch %s\n", libhot_dir.ptr);
         }
         AvenWatchHandle handles[] = { src_handle, libhot_handle };
         AvenWatchHandleSlice handle_slice = {
