@@ -4,7 +4,7 @@
 
 all: build
 build: build.c
-	$(CC) -o build build.c
+	$(CC) $(CFLAGS) -o build build.c
 clean:
 	rm build
 

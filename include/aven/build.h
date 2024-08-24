@@ -165,19 +165,15 @@ void aven_build_step_reset(AvenBuildStep *step);
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifdef _WIN32
     typedef struct {
         uint32_t len;
         void *security_descriptor;
         int inherit_handle;
     } WinSecurityAttr;
-
-    //int CreatePipeA(
-    //    AvenBuildFD *read_fd,
-    //    AvenBuildFD *write_fd,
-    //    WinSecurityAttr *security_attr,
-    //    uint32_t size
-    //);
 
     #define WIN_STARTF_USESTDHANDLES 0x00000100
 
@@ -235,15 +231,9 @@ void aven_build_step_reset(AvenBuildStep *step);
     void *GetStdHandle(uint32_t std_handle);
     int CloseHandle(void *handle);
     int GetExitCodeProcess(void *handle, uint32_t *exit_code);
-
-    int remove(const char *filepath);
-    int _rmdir(const char *dirpath);
-    int _mkdir(const char *dirpath);
 #else
     #include <sys/stat.h>
-    #include <sys/types.h>
     #include <sys/wait.h>
-    #include <unistd.h>
 #endif
 
 AvenBuildPIDResult aven_build_cmd_run(AvenStrSlice cmd, AvenArena arena) {
@@ -354,14 +344,6 @@ int aven_build_wait(AvenBuildPID pid) {
     return 0;
 }
 
-static void aven_build_rmdir(char *file) {
-#ifdef _WIN32
-    _rmdir(file);
-#else
-    rmdir(file);
-#endif
-}
-
 static int aven_build_step_wait(AvenBuildStep *step) {
     if (step->state != AVEN_BUILD_STEP_STATE_RUNNING) {
         return 0;
@@ -416,7 +398,7 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
             break;
         case AVEN_BUILD_STEP_TYPE_RMDIR:
             printf("rmdir %s\n", step->data.rmdir.ptr);
-            aven_build_rmdir(step->data.rmdir.ptr);
+            rmdir(step->data.rmdir.ptr);
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         case AVEN_BUILD_STEP_TYPE_TOUCH:
@@ -424,11 +406,11 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
             printf("touch %s\n", step->out_path.value.ptr);
-            FILE *file = fopen(step->out_path.value.ptr, "w");
-            if (file == NULL) {
+            int fd = open(step->out_path.value.ptr, O_CREAT);
+            if (fd < 0) {
                 return AVEN_BUILD_STEP_RUN_ERROR_TOUCH;
             }
-            fclose(file);
+            close(fd);
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         case AVEN_BUILD_STEP_TYPE_MKDIR:
@@ -436,7 +418,7 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
 #ifdef _WIN32
-            int error = _mkdir(step->out_path.value.ptr);
+            int error = mkdir(step->out_path.value.ptr);
 #else
             int error = mkdir(
                 step->out_path.value.ptr,
@@ -461,7 +443,7 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
 void aven_build_step_clean(AvenBuildStep *step) {
     if (step->out_path.valid) {
         remove(step->out_path.value.ptr);
-        aven_build_rmdir(step->out_path.value.ptr);
+        rmdir(step->out_path.value.ptr);
     }
     step->state = AVEN_BUILD_STEP_STATE_NONE;
 

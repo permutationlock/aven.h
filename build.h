@@ -24,6 +24,7 @@ static AvenBuildStep libaven_build_step(
         "arena.c",
         "arg.c",
         "build.c",
+        "build_common.c",
         "dl.c",
         "path.c",
         "watch.c",
