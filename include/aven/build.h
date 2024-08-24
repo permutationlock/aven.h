@@ -166,6 +166,7 @@ void aven_build_step_reset(AvenBuildStep *step);
 #include <stdlib.h>
 
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #ifdef _WIN32
@@ -232,7 +233,6 @@ void aven_build_step_reset(AvenBuildStep *step);
     int CloseHandle(void *handle);
     int GetExitCodeProcess(void *handle, uint32_t *exit_code);
 #else
-    #include <sys/stat.h>
     #include <sys/wait.h>
 #endif
 
@@ -406,7 +406,19 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
             printf("touch %s\n", step->out_path.value.ptr);
-            int fd = open(step->out_path.value.ptr, O_CREAT);
+#ifdef _WIN32
+            int fd = open(
+                step->out_path.value.ptr,
+                _O_CREAT | _O_TRUNC | _O_WRONLY,
+                _S_IREAD | _S_IWRITE
+            );
+#else
+            int fd = open(
+                step->out_path.value.ptr,
+                O_CREAT | O_TRUNC | O_WRONLY,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+            );
+#endif
             if (fd < 0) {
                 return AVEN_BUILD_STEP_RUN_ERROR_TOUCH;
             }
@@ -422,7 +434,7 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
 #else
             int error = mkdir(
                 step->out_path.value.ptr,
-                0755
+                S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
             );
 #endif
             if (error != 0 && errno != EEXIST) {

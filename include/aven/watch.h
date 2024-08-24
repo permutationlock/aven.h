@@ -18,8 +18,19 @@
     #define AVEN_WATCH_HANDLE_INVALID -1
 #endif
 
+typedef Result(bool) AvenWatchResult;
+typedef enum {
+    AVEN_WATCH_ERROR_NONE = 0,
+    AVEN_WATCH_ERROR_FILE,
+    AVEN_WATCH_ERROR_POLL,
+} AvenWatchError;
+
 AvenWatchHandle aven_watch_init(AvenStr dirname);
-bool aven_watch_check(AvenWatchHandle handle, int timeout);
+AvenWatchResult aven_watch_check_multiple(
+    AvenWatchHandleSlice handles,
+    int timeout
+);
+AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout);
 void aven_watch_deinit(AvenWatchHandle handle);
 
 #if defined(AVEN_WATCH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
@@ -27,6 +38,9 @@ void aven_watch_deinit(AvenWatchHandle handle);
 #ifdef _WIN32
     #ifndef WIN_INFINITE
         #define WIN_INFINITE 0xffffffff
+    #endif
+    #ifndef WIN_WAIT_TIMEOUT
+        #define WIN_WAIT_TIMEOUT 0x00000102
     #endif
 
     AvenWatchHandle FindFirstChangeNotificationA(
@@ -51,7 +65,10 @@ void aven_watch_deinit(AvenWatchHandle handle);
         );
     }
 
-    bool aven_watch_check_multiple(AvenWatchHandleSlice handles, int timeout) {
+    AvenWatchResult aven_watch_check_multiple(
+        AvenWatchHandleSlice handles,
+        int timeout
+    ) {
         uint32_t win_timeout = (uint32_t)timeout;
         if (timeout < 0) {
             win_timeout = WIN_INFINITE;
@@ -64,8 +81,10 @@ void aven_watch_deinit(AvenWatchHandle handle);
                 false,
                 win_timeout
             );
-            if (result >= handles.len) {
-                return signaled;
+            if (result == WIN_WAIT_TIMEOUT) {
+                return (AvenWatchResult){ .payload = signaled };
+            } else if (result >= handles.len) {
+                return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_POLL };
             }
 
             signaled = true;
@@ -74,25 +93,28 @@ void aven_watch_deinit(AvenWatchHandle handle);
             int success = FindNextChangeNotification(
                 slice_get(handles, result)
             );
-            assert(success != 0);
+            if (success == 0) {
+                return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_FILE };
+            }
 
             handles.ptr += (result + 1);
             handles.len -= (result + 1);
         } while (handles.len > 0);
 
-        return signaled;
+        return (AvenWatchResult){ .payload = signaled };
     }
 
-    bool aven_watch_check(AvenWatchHandle handle, int timeout) {
+    AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout) {
         AvenWatchHandleSlice handles = { .ptr = &handle, .len = 1 };
         return aven_watch_check_multiple(handles, timeout);
     }
  
     void aven_watch_deinit(AvenWatchHandle handle) {
-        int success = FindCloseChangeNotification(handle);
-        assert(success != 0);
+        FindCloseChangeNotification(handle);
     }
 #else
+    #include <errno.h>
+
     #include <poll.h>
     #include <sys/inotify.h>
     #include <unistd.h>
@@ -115,7 +137,10 @@ void aven_watch_deinit(AvenWatchHandle handle);
         return handle;
     }
 
-    bool aven_watch_check_multiple(AvenWatchHandleSlice handles, int timeout) {
+    AvenWatchResult aven_watch_check_multiple(
+        AvenWatchHandleSlice handles,
+        int timeout
+    ) {
         struct pollfd pfds[AVEN_WATCH_MAX_HANDLES];
         assert(handles.len < AVEN_WATCH_MAX_HANDLES);
 
@@ -127,9 +152,10 @@ void aven_watch_deinit(AvenWatchHandle handle);
         }
 
         int nevents = poll(pfds, handles.len, timeout);
-        assert(nevents >= 0);
-        if (nevents <= 0) {
-            return false;
+        if (nevents == 0) {
+            return (AvenWatchResult){ .payload = false };
+        } else if (nevents < 0) {
+            return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_POLL };
         }
 
         for (size_t i = 0; i < handles.len; i += 1) {
@@ -138,14 +164,24 @@ void aven_watch_deinit(AvenWatchHandle handle);
             }
 
             unsigned char buffer[32 * sizeof(struct inotify_event)];
-            int64_t len = read(slice_get(handles, i), buffer, sizeof(buffer));
-            assert(len >= 0);
+
+            ssize_t len = 0;
+            do {
+                ssize_t len = read(
+                    slice_get(handles, i),
+                    buffer,
+                    sizeof(buffer)
+                );
+                if (len < 0 and errno != EINTR) {
+                    return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_FILE };
+                }
+            } while (len < 0);
         }
         
-        return true;
+        return (AvenWatchResult){ .payload = true };
     }
 
-    bool aven_watch_check(AvenWatchHandle handle, int timeout) {
+    AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout) {
         AvenWatchHandleSlice handles = { .ptr = &handle, .len = 1 };
         return aven_watch_check_multiple(handles, timeout);
     }

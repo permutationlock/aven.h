@@ -21,7 +21,6 @@ int aven_dl_close(void *handle);
     const char aven_dl_suffix[] = "_aven_dl_loaded.dll";
 
     void *aven_dl_open(AvenStr fname) {
-        assert(fname.len > 0);
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 5];
@@ -54,7 +53,6 @@ int aven_dl_close(void *handle);
     }
 
     void *aven_dl_sym(void *handle, AvenStr symbol) {
-        assert(symbol.len > 0);
         return GetProcAddress(handle, symbol.ptr);
     }
 
@@ -65,7 +63,6 @@ int aven_dl_close(void *handle);
     #include <dlfcn.h>
 
     void *aven_dl_open(AvenStr fname) {
-        assert(fname.len > 0);
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 4];
@@ -80,7 +77,6 @@ int aven_dl_close(void *handle);
     }
 
     void *aven_dl_sym(void *handle, AvenStr symbol) {
-        assert(symbol.len > 0);
         return dlsym(handle, symbol.ptr);
     }
 
