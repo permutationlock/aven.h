@@ -1,2 +1,0 @@
-char message[] = "Hot damn!";
-

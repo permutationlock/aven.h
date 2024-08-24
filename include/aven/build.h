@@ -1,10 +1,6 @@
 #ifndef AVEN_BUILD_H
 #define AVEN_BUILD_H
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-
 #include "../aven.h"
 #include "arena.h"
 #include "str.h"
@@ -12,10 +8,8 @@
 #define AVEN_BUILD_MAX_ARGS 32
 
 #ifdef _WIN32
-    //typedef void *AvenBuildFD;
     typedef void *AvenBuildPID;
 #else
-    //typedef int AvenBuildFD;
     typedef int AvenBuildPID;
 #endif
 
@@ -60,6 +54,9 @@ struct AvenBuildStepNode {
     AvenBuildStepNode *next;
     AvenBuildStep *step;
 };
+
+typedef Slice(AvenBuildStep) AvenBuildStepSlice;
+typedef Slice(AvenBuildStep *) AvenBuildStepPtrSlice;
 
 typedef Result(AvenBuildPID) AvenBuildPIDResult;
 typedef enum {
@@ -163,6 +160,9 @@ void aven_build_step_reset(AvenBuildStep *step);
 
 #if defined(AVEN_BUILD_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
 
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #ifdef _WIN32
@@ -477,38 +477,6 @@ void aven_build_step_reset(AvenBuildStep *step) {
         aven_build_step_reset(dep->step);
     }
 }
-
-//typedef struct {
-//    AvenBuildFD read_fd;
-//    AvenBuildFD write_fd;
-//} AvenBuildPipe;
-//
-//typedef Result(AvenBuildPipe) AvenBuildPipeResult;
-//
-//typedef enum {
-//    AVEN_BUILD_PIPE_ERROR_NONE = 0,
-//    AVEN_BUILD_PIPE_ERROR_CREATE,
-//} AvenBuildPipeError;
-//
-//static AvenBuildPipeResult aven_build_pipe(void) {
-//    AvenBuildPipe p = { 0 };
-//#ifdef _WIN32
-//    WinSecurityAttributes sec_attr = {
-//        .len = sizeof(sec_attr),
-//        .inherit_handle = (int)true,
-//    };
-//    int success = CreatePipe(&p.read, &p.write, &sec_attr, 0);
-//    if (success == 0) {
-//        return (AvenBuildPipeResult){ .error = AVEN_BUILD_PIPE_ERROR_CREATE };
-//    }
-//#else
-//    int error = pipe(&p.read_fd);
-//    if (error != 0) {
-//        return (AvenBuildPipeResult){ .error = AVEN_BUILD_PIPE_ERROR_CREATE };
-//    }
-//#endif
-//    return (AvenBuildPipeResult){ .payload = p };
-//}
 
 #endif // AVEN_BUILD_IMPLEMENTATOIN
 

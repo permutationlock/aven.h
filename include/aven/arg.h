@@ -29,7 +29,21 @@ typedef struct {
 typedef Optional(AvenArg) AvenArgOptional;
 typedef Slice(AvenArg) AvenArgSlice;
 
-int aven_arg_parse(AvenArgSlice args, char **argv, int argc);
+typedef enum {
+    AVEN_ARG_ERROR_NONE = 0,
+    AVEN_ARG_ERROR_HELP,
+    AVEN_ARG_ERROR_VALUE,
+    AVEN_ARG_ERROR_MISSING,
+    AVEN_ARG_ERROR_UNKNOWN,
+} AvenArgError;
+
+int aven_arg_parse(
+    AvenArgSlice args,
+    char **argv,
+    int argc,
+    char *overview,
+    char *usage
+);
 
 AvenArgOptional aven_arg_get(AvenArgSlice arg_slice, char *argname);
 bool aven_arg_has_arg(AvenArgSlice arg_slice, char *argname);
@@ -75,7 +89,7 @@ static void aven_arg_print_value(AvenArgValue value) {
 
 static void aven_arg_print(AvenArg arg) {
     assert(arg.name != NULL);
-    printf("\t%s", arg.name);
+    printf("    %s", arg.name);
 
     aven_arg_print_type(arg.type);
  
@@ -94,18 +108,26 @@ static void aven_arg_print(AvenArg arg) {
     printf("\n");
 }
 
-static void aven_arg_help(AvenArgSlice args) {
-    printf("arguments:\n");
+static void aven_arg_help(AvenArgSlice args, char *overview, char *usage) {
+    if (overview != NULL) {
+        printf("OVERVIEW: %s\n\n", overview);
+    }
+    if (usage != NULL) {
+        printf("USAGE: %s\n\n", usage);
+    }
+    printf("OPTIONS:\n");
+    printf("    help, -h, -help, --help -- Show this message\n");
     for (size_t i = 0; i < args.len; i += 1) {
         aven_arg_print(slice_get(args, i));
     }
-    printf("to show this message use:\n\thelp, -h, -help, --help\n");
 }
 
 int aven_arg_parse(
     AvenArgSlice args,
     char **argv,
-    int argc
+    int argc,
+    char *overview,
+    char *usage
 ) {
     for (int i = 1; i < argc; i += 1) {
         char *arg_str = argv[i];
@@ -115,8 +137,8 @@ int aven_arg_parse(
             strcmp(arg_str, "-help") == 0 or
             strcmp(arg_str, "--help") == 0
         ) {
-            aven_arg_help(args);
-            return -1;
+            aven_arg_help(args, overview, usage);
+            return AVEN_ARG_ERROR_HELP;
         }
 
         bool found = false;
@@ -135,7 +157,7 @@ int aven_arg_parse(
                     if (i + 1 >= argc) {
                         printf("missing expected argument value:\n");
                         aven_arg_print(*arg);
-                        return -1;
+                        return AVEN_ARG_ERROR_VALUE;
                     }
                     arg->value.data.arg_int = atoi(argv[i + 1]);
                     i += 1;
@@ -144,7 +166,7 @@ int aven_arg_parse(
                     if (i + 1 >= argc) {
                         printf("missing expected argument value:\n");
                         aven_arg_print(*arg);
-                        return -1;
+                        return AVEN_ARG_ERROR_VALUE;
                     }
                     arg->value.data.arg_str = argv[i + 1];
                     i += 1;
@@ -155,9 +177,9 @@ int aven_arg_parse(
         }
 
         if (!found) {
-            printf("unknown flag: %s\n", arg_str);
-            aven_arg_help(args);
-            return -1;
+            printf("unknown option: %s\n", arg_str);
+            aven_arg_help(args, overview, usage);
+            return AVEN_ARG_ERROR_UNKNOWN;
         }
     }
 
@@ -167,7 +189,7 @@ int aven_arg_parse(
         if (!arg.optional and arg.value.type != arg.type) {
             printf("missing required argument:\n");
             aven_arg_print(arg);
-            error = -1;
+            error = AVEN_ARG_ERROR_MISSING;
         }
     }
 

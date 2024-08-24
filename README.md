@@ -11,20 +11,17 @@ The project has expanded to include:
  - arena allocation (`aven/arena.h`);
  - slice based strings (`aven/string.h`);
  - command line argument parsing (`aven/arg.h`);
- - a C build system (`aven/build.h`);
+ - a C build system (`aven/build.h`, `aven/build/common.h`);
  - a tiny SIMD linear algebra library (`aven/glm.h`);
  - shared library loading (`aven/dl.h`);
- - high resolution timing (`aven/time.h`);
  - directory watching (`aven/watch.h`).
 
-Everything is cross-platform (POSIX + Windows).
+Everything is cross-platform (POSIX[^1] + Windows). 
+The coding style was inspired by the [nullprogram blog][1].
 
 ## Building the example
 
-A somewhat interesting `build.c` is included that will watch a source directory
-and rebuild the project on file changes. The project in question includes an
-executable and a shared library. The shared library can be hot reloaded while
-the executable is running.
+The library is built using its own build system.
 
 ### Build the build system
 
@@ -38,24 +35,25 @@ or simply
 cc -o build build.c
 ```
 
-### Build the project
+### Build the library
 
 ```shell
 ./build
 ```
 
-or build and watch source with
-
-```
-./build watch
-```
-
-### Run
+### Build system help
 
 ```shell
-./build_out/bin/print_funmath
+./build help
 ```
 
-The code was inspired by the [nullprogram blog][1].
+### Clean build artifacts
 
+```shell
+./build clean
+```
+
+[^1]: Finding the path to a running executable is not standard
+    accross POSIX systems. Currently `aven_path_exe` is implemented
+    for Windows and Linux only.
 [1]: https://nullprogram.com

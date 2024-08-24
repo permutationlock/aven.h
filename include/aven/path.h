@@ -1,8 +1,6 @@
 #ifndef AVEN_PATH_H
 #define AVEN_PATH_H
 
-#include <stdarg.h>
-
 #include "../aven.h"
 #include "arena.h"
 #include "str.h"
@@ -26,9 +24,14 @@ AvenPathResult aven_path_exe(AvenArena *arena);
 
 #if defined(AVEN_PATH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
 
-#ifdef _WIN32
+#include <stdarg.h>
+
+#if defined(_WIN32)
     uint32_t GetModuleFileNameA(void *mod, char *buffer, uint32_t buffer_len);
-#else
+#elif defined(__linux__)
+    #if !defined(_POSIX_C_SOURCE) or _POSIX_C_SOURCE < 200112L
+        #error "readlink requires _POSIX_C_SOURCE >= 200112L"
+    #endif
     #include <unistd.h>
 #endif
 
@@ -136,7 +139,7 @@ AvenPathResult aven_path_exe(AvenArena *arena) {
     return (AvenPathResult){ .payload = path };
 #else
     assert(false);
-    return (AvenStr){ 0 };
+    return (AvenStrResult){ .error = 1 };
 #endif
 }
 
