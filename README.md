@@ -8,21 +8,25 @@ access macros.
 
 The other prominent part of the library is the build system. I've long been
 frustrated by how non-portable Makefiles are, and how complicated larger build
-systems are. What I wanted out of a C build system was:
+systems are. I wanted my build system to satisfy the following requirements:
 
- - a portable way to describe how the standard build tools
-   (`cc`, `ld`, and `ar`) should be used to produce build artifacts;
- - a way to specify exactly what executables and flags should be used for each
-   of these tools, e.g. how the variables `CC` and `CFLAGS` are used in
-   Makefiles;
- - a portable way to interact with the filesystem through build system steps[^2];
- - an easy way to build and use the artifacts from dependent projects within
-   a parent project.
+ - it should depend only on the existence of a C compiler toolchain:
+   a C compiler (`cc`), an archiver (`ar`), and a linker (`cc` or a separate
+   `ld`);
+ - it should include a portable API to interact with the filesystem
+   (`mkdir`, `rm`, `rmdir`, `touch`) wihtout relying on external binaries[^2];
+ - build scripts should describe steps (evokations of the above tools/actions)
+   and the dependencies between steps;
+ - the user must be able to specify exactly what executables and flags will
+   be used for each build tool, e.g. how the variables `CC` and `CFLAGS` are
+   used in Makefiles;
+ - there must by a standard easy way for a parent project to build and use
+   artifacts from a dependency project.
 
 The current build system accomplishes all four bullet points to my
 satisfaction while remaining extremely simple.
 
-In total library currenlty includes:
+In total library includes:
 
  - slices, optionals, and results: `aven.h`
  - arena allocation: `aven/arena.h` ([inspired by this post][2])
