@@ -35,10 +35,6 @@
 #if __STDC_VERSION__ >= 201112L
     #include <stdnoreturn.h>
 #elif __STDC_VERSION__ >= 199901L
-    #ifndef __BIGGEST_ALIGNMENT__
-        #error "__BIGGEST_ALIGNMENT__ must be the max required alignment"
-    #endif
-    #define arena_alignof(t) __BIGGEST_ALIGNMENT__
     #define noreturn
 #else
     #error "C99 or later is required"

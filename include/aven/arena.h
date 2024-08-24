@@ -11,6 +11,8 @@
         #error "__BIGGEST_ALIGNMENT__ must be the max required alignment"
     #endif
     #define aven_arena_alignof(t) __BIGGEST_ALIGNMENT__
+#else
+    #error "C99 or later is required"
 #endif
 
 typedef struct {
@@ -22,14 +24,18 @@ static inline AvenArena aven_arena_init(void *mem, size_t size) {
     return (AvenArena){ .base = mem, .top = (unsigned char *)mem + size };
 }
 
+
 #if __has_attribute(malloc)
     __attribute__((malloc))
 #endif
-#if __has_attribute(alloc_size)
-    __attribute__((alloc_size(2)))
-#endif
-#if __has_attribute(alloc_align)
-    __attribute__((alloc_align(3)))
+#if !defined(AVEN_ARENA_IMPLEMENTATION) and !defined(AVEN_IMPLEMENTATION)
+    // These attributes cause issues when the implementation is in the same TU
+    #if __has_attribute(alloc_size)
+        __attribute__((alloc_size(2)))
+    #endif
+    #if __has_attribute(alloc_align)
+        __attribute__((alloc_align(3)))
+    #endif
 #endif
 void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align);
 
