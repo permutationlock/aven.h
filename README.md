@@ -19,11 +19,12 @@ The project has expanded to include:
 Everything is cross-platform (POSIX[^1] + Windows). 
 The coding style was inspired by the [nullprogram blog][1].
 
-## Building the example
+## Building the library
 
-The library is built using its own build system.
+A static library can built using the build system from the header
+only library.
 
-### Build the build system
+### Building the build system
 
 ```shell
 make
@@ -35,19 +36,19 @@ or simply
 cc -o build build.c
 ```
 
-### Build the library
-
-```shell
-./build
-```
-
-### Build system help
+### Showing build system help
 
 ```shell
 ./build help
 ```
 
-### Clean build artifacts
+### Building the library
+
+```shell
+./build
+```
+
+### Cleaning build artifacts
 
 ```shell
 ./build clean
@@ -56,4 +57,5 @@ cc -o build build.c
 [^1]: Finding the path to a running executable is not standard
     accross POSIX systems. Currently `aven_path_exe` is implemented
     for Windows and Linux only.
+
 [1]: https://nullprogram.com
