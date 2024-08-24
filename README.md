@@ -39,7 +39,8 @@ The coding style was inspired by the [nullprogram blog][1].
 ## Minimizing namespace polution
 
 All identifiers for functions, variables, and macros will be in snake case
-and begin with a prefix for the corresponding header path. E.g. the allocate
+and begin with a prefix for the corresponding header path, except for those
+defined in `aven.h`. E.g. the allocate
 function defined in `aven/arena.h` is `aven_arena_alloc`.
 
 When built as a separate static library using the build system (see below),

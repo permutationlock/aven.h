@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
 // Inspired by and/or copied from Chris Wellons (https://nullprogram.com)
 
@@ -40,7 +39,7 @@
     #error "C99 or later is required"
 #endif
 
-#define Optional(t) struct { t value; bool valid; }
+#define  Optional(t) struct { t value; bool valid; }
 #define Result(t) struct { t payload; int error; }
 #define Slice(t) struct { t *ptr; size_t len; }
 #define List(t, n) struct { size_t len; t array[n]; }
@@ -73,6 +72,8 @@ typedef Slice(unsigned char) ByteSlice;
         .ptr = (unsigned char *)s.ptr, \
         .len = s.len * sizeof(*s.ptr), \
     }
+
+void *memcpy(void *restrict s1, const void *restrict s2, size_t n);
 
 #define slice_copy(d, s) memcpy( \
         d.ptr, \
