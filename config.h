@@ -1,7 +1,8 @@
-// Example config to use the Zig C toolchain
-// #define AVEN_BUILD_COMMON_DEFAULT_CC "zig"
-// #define AVEN_BUILD_COMMON_DEFAULT_CCFLAGS "cc -g3 -std=c99"
-//
-// #define AVEN_BUILD_COMMON_DEFAULT_AR "zig"
-// #define AVEN_BUILD_COMMON_DEFAULT_ARFLAGS "ar -rcs"
+// config.h defines custom defaultss for common flags
+
+#define AVEN_BUILD_COMMON_DEFAULT_CCFLAGS \
+    "-pedantic -fstrict-aliasing -O1 -g3 -Werror -Wall -Wextra " \
+    "-Wshadow -Wconversion -Wdouble-promotion -Winit-self " \
+    "-Wcast-align -Wstrict-prototypes -Wold-style-definition " \
+    "-fsanitize-trap -fsanitize=unreachable -fsanitize=undefined"
 
