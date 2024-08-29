@@ -6,11 +6,11 @@
 
 #define AVEN_DL_MAX_PATH_LEN 4096
 
-void *aven_dl_open(AvenStr fname);
-void *aven_dl_sym(void *handle, AvenStr symbol);
-int aven_dl_close(void *handle);
+AVEN_FN void *aven_dl_open(AvenStr fname);
+AVEN_FN void *aven_dl_sym(void *handle, AvenStr symbol);
+AVEN_FN int aven_dl_close(void *handle);
 
-#if defined(AVEN_DL_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+#ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
     int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
@@ -18,9 +18,9 @@ int aven_dl_close(void *handle);
     void *GetProcAddress(void *handle, const char *symbol);
     int FreeLibrary(void *handle);
     
-    const char aven_dl_suffix[] = "_aven_dl_loaded.dll";
+    char aven_dl_suffix[] = "_aven_dl_loaded.dll";
 
-    void *aven_dl_open(AvenStr fname) {
+    AVEN_FN void *aven_dl_open(AvenStr fname) {
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 5];
@@ -52,17 +52,17 @@ int aven_dl_close(void *handle);
         return LoadLibraryA(temp_buffer);
     }
 
-    void *aven_dl_sym(void *handle, AvenStr symbol) {
+    AVEN_FN void *aven_dl_sym(void *handle, AvenStr symbol) {
         return GetProcAddress(handle, symbol.ptr);
     }
 
-    int aven_dl_close(void *handle) {
+    AVEN_FN int aven_dl_close(void *handle) {
         return FreeLibrary(handle);
     }
 #else
     #include <dlfcn.h>
 
-    void *aven_dl_open(AvenStr fname) {
+    AVEN_FN void *aven_dl_open(AvenStr fname) {
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         char buffer[AVEN_DL_MAX_PATH_LEN + 4];
@@ -76,15 +76,15 @@ int aven_dl_close(void *handle);
         return dlopen(buffer, RTLD_LAZY);
     }
 
-    void *aven_dl_sym(void *handle, AvenStr symbol) {
+    AVEN_FN void *aven_dl_sym(void *handle, AvenStr symbol) {
         return dlsym(handle, symbol.ptr);
     }
 
-    int aven_dl_close(void *handle) {
+    AVEN_FN int aven_dl_close(void *handle) {
         return dlclose(handle);
     }
 #endif
 
-#endif // AVEN_DL_IMPLEMENTATION
+#endif // AVEN_IMPLEMENTATION
 
 #endif // AVEN_DL_H

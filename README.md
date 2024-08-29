@@ -47,14 +47,15 @@ and begin with a prefix for the corresponding header path, except for those
 defined in `aven.h`. E.g. the allocate
 function defined in `aven/arena.h` is `aven_arena_alloc`.
 
-When built as a separate static library using the build system (see below),
-the headers will only include the minimal freestanding C standard headers:
-`stddef.h`, `iso646.h`, `stdbool.h`, and `stdint.h`. If compiling for C11 then
-`stdalign.h` and `stdnoreturn.h` are also included.
+When built as a separate translation unit using the build system (see below),
+the headers will only include the following C standard headers:
+`stddef.h`, `iso646.h`, `stdbool.h`, `stdint.h`, and `stdassert.h`.
+If compiling for C11 then `stdalign.h` and `stdnoreturn.h` are also included.
 
 When used as a header only library (by defining the `AVEN_IMPLEMENTATION` macro)
-a small number of C standard library and basic POSIX headers will be included.
-For Windows builds bespoke definitions are used in lieu of including `windows.h`.
+a small number of other C standard library and basic POSIX headers will be
+included as well.
+For Windows builds bespoke definitions are used in lieu of `windows.h`.
 
 ## Building the library
 

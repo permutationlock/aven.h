@@ -84,4 +84,10 @@ void *memcpy(void *restrict s1, const void *restrict s2, size_t n);
         ) \
     )
 
+#if defined(AVEN_IMPLEMENTATION) and !defined(AVEN_IMPLEMENTATION_STU)
+    #define AVEN_FN static inline
+#else
+    #define AVEN_FN
+#endif
+
 #endif // AVEN_H

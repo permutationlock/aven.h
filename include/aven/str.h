@@ -32,6 +32,14 @@ static inline bool aven_str_compare(AvenStr s1, AvenStr s2) {
     return true;
 }
 
+static inline AvenStr aven_str_copy(AvenStr str, AvenArena *arena) {
+    AvenStr cpy = { .len = str.len };
+    cpy.ptr = aven_arena_alloc(arena, cpy.len + 1, 1);
+    slice_copy(cpy, str);
+    cpy.ptr[cpy.len] = 0;
+    return cpy;
+}
+
 static inline AvenStrSlice aven_str_split(
     AvenStr str,
     char separator,

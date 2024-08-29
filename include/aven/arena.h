@@ -28,8 +28,8 @@ static inline AvenArena aven_arena_init(void *mem, size_t size) {
 #if __has_attribute(malloc)
     __attribute__((malloc))
 #endif
-#if !defined(AVEN_ARENA_IMPLEMENTATION) and !defined(AVEN_IMPLEMENTATION)
-    // These attributes cause issues when the implementation is in the same TU
+#if !defined(AVEN_ARENA_IMPLEMENTATION) and !defined(AVEN_HIMPLEMENTATION)
+    // These attributes cause issues when compiling as one translation unit
     #if __has_attribute(alloc_size)
         __attribute__((alloc_size(2)))
     #endif
@@ -37,7 +37,7 @@ static inline AvenArena aven_arena_init(void *mem, size_t size) {
         __attribute__((alloc_align(3)))
     #endif
 #endif
-void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align);
+AVEN_FN void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align);
 
 #define aven_arena_create(t, a) (t *)aven_arena_alloc( \
         a, \
@@ -50,9 +50,9 @@ void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align);
         aven_arena_alignof(t) \
     )
 
-#if defined(AVEN_ARENA_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+#ifdef AVEN_IMPLEMENTATION
 
-void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align) {
+AVEN_FN void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align) {
     assert(
         align == 1 ||
         align == 2 ||
@@ -69,6 +69,6 @@ void *aven_arena_alloc(AvenArena *arena, size_t size, size_t align) {
     return arena->top;
 }
 
-#endif // AVEN_ARENA_IMPLEMENTATION
+#endif // AVEN_IMPLEMENTATION
 
 #endif // AVEN_ARENA_H

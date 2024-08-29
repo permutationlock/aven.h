@@ -25,15 +25,15 @@ typedef enum {
     AVEN_WATCH_ERROR_POLL,
 } AvenWatchError;
 
-AvenWatchHandle aven_watch_init(AvenStr dirname);
-AvenWatchResult aven_watch_check_multiple(
+AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname);
+AVEN_FN AvenWatchResult aven_watch_check_multiple(
     AvenWatchHandleSlice handles,
     int timeout
 );
-AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout);
-void aven_watch_deinit(AvenWatchHandle handle);
+AVEN_FN AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout);
+AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
 
-#if defined(AVEN_WATCH_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+#ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
     #ifndef WIN_INFINITE
@@ -57,7 +57,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
         uint32_t timeout_ms
     );
 
-    AvenWatchHandle aven_watch_init(AvenStr dirname) {
+    AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname) {
         return FindFirstChangeNotificationA(
             dirname.ptr,
             0,
@@ -65,7 +65,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
         );
     }
 
-    AvenWatchResult aven_watch_check_multiple(
+    AVEN_FN AvenWatchResult aven_watch_check_multiple(
         AvenWatchHandleSlice handles,
         int timeout
     ) {
@@ -104,12 +104,15 @@ void aven_watch_deinit(AvenWatchHandle handle);
         return (AvenWatchResult){ .payload = signaled };
     }
 
-    AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout) {
+    AVEN_FN AvenWatchResult aven_watch_check(
+        AvenWatchHandle handle,
+        int timeout
+    ) {
         AvenWatchHandleSlice handles = { .ptr = &handle, .len = 1 };
         return aven_watch_check_multiple(handles, timeout);
     }
  
-    void aven_watch_deinit(AvenWatchHandle handle) {
+    AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
         FindCloseChangeNotification(handle);
     }
 #else
@@ -119,7 +122,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
     #include <sys/inotify.h>
     #include <unistd.h>
 
-    AvenWatchHandle aven_watch_init(AvenStr dirname) {
+    AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname) {
         AvenWatchHandle handle = inotify_init();
         if (handle < 0) {
             return AVEN_WATCH_HANDLE_INVALID;
@@ -137,7 +140,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
         return handle;
     }
 
-    AvenWatchResult aven_watch_check_multiple(
+    AVEN_FN AvenWatchResult aven_watch_check_multiple(
         AvenWatchHandleSlice handles,
         int timeout
     ) {
@@ -167,7 +170,7 @@ void aven_watch_deinit(AvenWatchHandle handle);
 
             ssize_t len = 0;
             do {
-                ssize_t len = read(
+                len = read(
                     slice_get(handles, i),
                     buffer,
                     sizeof(buffer)
@@ -181,16 +184,19 @@ void aven_watch_deinit(AvenWatchHandle handle);
         return (AvenWatchResult){ .payload = true };
     }
 
-    AvenWatchResult aven_watch_check(AvenWatchHandle handle, int timeout) {
+    AVEN_FN AvenWatchResult aven_watch_check(
+        AvenWatchHandle handle,
+        int timeout
+    ) {
         AvenWatchHandleSlice handles = { .ptr = &handle, .len = 1 };
         return aven_watch_check_multiple(handles, timeout);
     }
 
-    void aven_watch_deinit(AvenWatchHandle handle) {
+    AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
         close(handle);
     }
 #endif
 
-#endif // AVEN_WATCH_IMPLEMENTATION
+#endif // AVEN_IMPLEMENTATION
 
 #endif // AVEN_WATCH_H

@@ -40,79 +40,8 @@ typedef struct {
     AvenStr soext;
     AvenStr arext;
     bool clean;
+    bool test;
 } AvenBuildCommonOpts;
-
-AvenStr aven_build_common_overview;
-AvenStr aven_build_common_usage;
-AvenArgSlice aven_build_common_args;
-
-AvenBuildCommonOpts aven_build_common_opts(
-    AvenArgSlice arg_slice,
-    AvenArena *arena
-);
-
-AvenBuildStep aven_build_common_step_subdir(
-    AvenBuildStep *dir_step,
-    AvenStr subdir_name,
-    AvenArena *arena
-);
-
-AvenBuildStep aven_build_common_step_cc(
-    AvenBuildCommonOpts *opts,
-    AvenStr src_path,
-    AvenBuildStep *out_dir_step,
-    AvenArena *arena
-);
-AvenBuildStep aven_build_common_step_cc_ex(
-    AvenBuildCommonOpts *opts,
-    AvenStrSlice includes,
-    AvenStrSlice macros,
-    AvenStr src_path,
-    AvenBuildStep *out_dir_step,
-    AvenArena *arena
-);
-
-AvenBuildStep aven_build_common_step_ld_exe(
-    AvenBuildCommonOpts *opts,
-    AvenBuildStepPtrSlice obj_steps,
-    AvenBuildStep *out_dir_step,
-    AvenStr out_fname,
-    AvenArena *arena
-);
-AvenBuildStep aven_build_common_step_ld_exe_ex(
-    AvenBuildCommonOpts *opts,
-    AvenStrSlice linked_libs,
-    AvenBuildStepPtrSlice obj_steps,
-    AvenBuildStep *out_dir_step,
-    AvenStr out_fname,
-    AvenArena *arena
-);
-
-AvenBuildStep aven_build_common_step_ld_so(
-    AvenBuildCommonOpts *opts,
-    AvenBuildStepPtrSlice obj_steps,
-    AvenBuildStep *out_dir_step,
-    AvenStr out_fname,
-    AvenArena *arena
-);
-AvenBuildStep aven_build_common_step_ld_so_ex(
-    AvenBuildCommonOpts *opts,
-    AvenStrSlice linked_libs,
-    AvenBuildStepPtrSlice obj_steps,
-    AvenBuildStep *out_dir_step,
-    AvenStr out_fname,
-    AvenArena *arena
-);
-
-AvenBuildStep aven_build_common_step_ar(
-    AvenBuildCommonOpts *opts,
-    AvenBuildStepPtrSlice obj_steps,
-    AvenBuildStep *out_dir_step,
-    AvenStr out_fname,
-    AvenArena *arena
-);
-
-#if defined(AVEN_IMPLEMENTATION) or defined(AVEN_BUILD_COMMON_IMPLEMENTATION)
 
 char aven_build_common_overview_cstr[] = "Aven C build system";
 AvenStr aven_build_common_overview = {
@@ -127,6 +56,11 @@ AvenStr aven_build_common_usage = {
 };
 
 AvenArg aven_build_common_args_data[] = {
+    {
+        .name = "test",
+        .description = "Build and  run tests",
+        .type = AVEN_ARG_TYPE_BOOL,
+    },
     {
         .name = "clean",
         .description = "Remove all build artifacts",
@@ -380,12 +314,13 @@ AvenArgSlice aven_build_common_args = {
     .len = countof(aven_build_common_args_data),
 };
 
-AvenBuildCommonOpts aven_build_common_opts(
+static inline AvenBuildCommonOpts aven_build_common_opts(
     AvenArgSlice arg_slice,
     AvenArena *arena
 ) {
     AvenBuildCommonOpts opts = { 0 };
 
+    opts.test = aven_arg_get_bool(arg_slice, "test");
     opts.clean = aven_arg_get_bool(arg_slice, "clean");
      
     opts.cc.compiler = aven_str_cstr(aven_arg_get_str(arg_slice, "-cc"));
@@ -438,7 +373,7 @@ AvenBuildCommonOpts aven_build_common_opts(
     return opts;
 }
 
-AvenBuildStep aven_build_common_step_subdir(
+static inline AvenBuildStep aven_build_common_step_subdir(
     AvenBuildStep *dir_step,
     AvenStr subdir_name,
     AvenArena *arena
@@ -453,7 +388,7 @@ AvenBuildStep aven_build_common_step_subdir(
     return subdir_step;
 }
 
-AvenBuildStep aven_build_common_step_cc_ex(
+static inline AvenBuildStep aven_build_common_step_cc_ex(
     AvenBuildCommonOpts *opts,
     AvenStrSlice includes,
     AvenStrSlice macros,
@@ -527,7 +462,7 @@ AvenBuildStep aven_build_common_step_cc_ex(
     return cc_step;
 }
 
-AvenBuildStep aven_build_common_step_cc(
+static inline AvenBuildStep aven_build_common_step_cc(
     AvenBuildCommonOpts *opts,
     AvenStr src_path,
     AvenBuildStep *out_dir_step,
@@ -628,7 +563,7 @@ static AvenBuildStep aven_build_common_step_ld(
     return link_step;
 }
 
-AvenBuildStep aven_build_common_step_ld_exe_ex(
+static inline AvenBuildStep aven_build_common_step_ld_exe_ex(
     AvenBuildCommonOpts *opts,
     AvenStrSlice linked_libs,
     AvenBuildStepPtrSlice obj_steps,
@@ -647,7 +582,7 @@ AvenBuildStep aven_build_common_step_ld_exe_ex(
     );
 }
 
-AvenBuildStep aven_build_common_step_ld_so_ex(
+static inline AvenBuildStep aven_build_common_step_ld_so_ex(
     AvenBuildCommonOpts *opts,
     AvenStrSlice linked_libs,
     AvenBuildStepPtrSlice obj_steps,
@@ -666,7 +601,7 @@ AvenBuildStep aven_build_common_step_ld_so_ex(
     );
 }
 
-AvenBuildStep aven_build_common_step_ld_exe(
+static inline AvenBuildStep aven_build_common_step_ld_exe(
     AvenBuildCommonOpts *opts,
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
@@ -683,7 +618,7 @@ AvenBuildStep aven_build_common_step_ld_exe(
     );
 }
 
-AvenBuildStep aven_build_common_step_ld_so(
+static inline AvenBuildStep aven_build_common_step_ld_so(
     AvenBuildCommonOpts *opts,
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
@@ -700,7 +635,7 @@ AvenBuildStep aven_build_common_step_ld_so(
     );
 }
 
-AvenBuildStep aven_build_common_step_ar(
+static inline AvenBuildStep aven_build_common_step_ar(
     AvenBuildCommonOpts *opts,
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
@@ -766,6 +701,224 @@ AvenBuildStep aven_build_common_step_ar(
     return ar_step;
 }
 
-#endif // AVEN_BUILD_COMMON_IMPLEMENTATION
+static inline AvenBuildStep aven_build_common_step_cc_ld(
+    AvenBuildCommonOpts *opts,
+    AvenStrSlice includes,
+    AvenStrSlice macros,
+    AvenStrSlice linked_libs,
+    AvenBuildStepPtrSlice obj_steps,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    bool shared_lib,
+    AvenArena *arena
+) {
+    AvenBuildStep *obj_step = aven_arena_create(AvenBuildStep, arena);
+    *obj_step = aven_build_common_step_cc_ex(
+        opts,
+        includes,
+        macros,
+        src_path,
+        out_dir_step,
+        arena
+    );
+
+    AvenBuildStepPtrSlice exe_obj_steps = { .len = 1 + obj_steps.len };
+    exe_obj_steps.ptr = aven_arena_create_array(
+        AvenBuildStep *,
+        arena,
+        exe_obj_steps.len
+    );
+
+    size_t i = 0;
+    slice_get(exe_obj_steps, i) = obj_step;
+    i += 1;
+    for (size_t j = 0; j < obj_steps.len; j += 1) {
+        slice_get(exe_obj_steps, i) = slice_get(obj_steps, j);
+        i += 1;
+    }
+
+    assert(obj_step->out_path.valid);
+    AvenStr obj_fname = aven_path_fname(obj_step->out_path.value, arena);
+    obj_fname.len -= opts->obext.len;
+    AvenStr exe_fname = aven_str_copy(obj_fname, arena);
+
+    AvenBuildStep *bin_step = aven_arena_create(AvenBuildStep, arena);
+    *bin_step = aven_build_common_step_ld(
+        opts,
+        linked_libs,
+        exe_obj_steps,
+        out_dir_step,
+        exe_fname,
+        shared_lib,
+        arena
+    );
+
+    AvenBuildStep rm_obj_step = aven_build_step_rm(obj_step->out_path.value);
+    aven_build_step_add_dep(&rm_obj_step, bin_step, arena);
+
+    rm_obj_step.out_path = bin_step->out_path;
+    bin_step->out_path.valid = false;
+    return rm_obj_step;
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_so_ex(
+    AvenBuildCommonOpts *opts,
+    AvenStrSlice includes,
+    AvenStrSlice macros,
+    AvenStrSlice linked_libs,
+    AvenBuildStepPtrSlice obj_steps,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    return aven_build_common_step_cc_ld(
+        opts,
+        includes,
+        macros,
+        linked_libs,
+        obj_steps,
+        src_path,
+        out_dir_step,
+        true,
+        arena
+    );
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_exe_ex(
+    AvenBuildCommonOpts *opts,
+    AvenStrSlice includes,
+    AvenStrSlice macros,
+    AvenStrSlice linked_libs,
+    AvenBuildStepPtrSlice obj_steps,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    return aven_build_common_step_cc_ld(
+        opts,
+        includes,
+        macros,
+        linked_libs,
+        obj_steps,
+        src_path,
+        out_dir_step,
+        false,
+        arena
+    );
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_so(
+    AvenBuildCommonOpts *opts,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    return aven_build_common_step_cc_ld_so_ex(
+        opts,
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenBuildStepPtrSlice){ 0 },
+        src_path,
+        out_dir_step,
+        arena
+    );
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_exe(
+    AvenBuildCommonOpts *opts,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    return aven_build_common_step_cc_ld_exe_ex(
+        opts,
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenBuildStepPtrSlice){ 0 },
+        src_path,
+        out_dir_step,
+        arena
+    );
+}
+
+static inline AvenBuildStep aven_build_common_step_run_exe(
+    AvenBuildStep *exe_step,
+    AvenStrSlice args,
+    AvenArena *arena
+) {
+    assert(exe_step->out_path.valid);
+
+    AvenStrSlice cmd_slice = { .len = 1 + args.len };
+    cmd_slice.ptr = aven_arena_create_array(AvenStr, arena, cmd_slice.len);
+
+    size_t i = 0;
+    slice_get(cmd_slice, i) = exe_step->out_path.value;
+    i += 1;
+
+    for (size_t j = 0; j < args.len; j += 1) {
+        slice_get(cmd_slice, i) = slice_get(args, j);
+        i += 1;
+    }
+
+    AvenBuildOptionalPath out_path = { 0 };
+    AvenBuildStep run_step = aven_build_step_cmd(
+        out_path,
+        cmd_slice
+    );
+    aven_build_step_add_dep(&run_step, exe_step, arena);
+    return run_step;
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe_ex(
+    AvenBuildCommonOpts *opts,
+    AvenStrSlice includes,
+    AvenStrSlice macros,
+    AvenStrSlice linked_libs,
+    AvenBuildStepPtrSlice obj_steps,
+    AvenStr src_path,
+    AvenBuildStep *work_dir_step,
+    AvenStrSlice args,
+    AvenArena *arena
+) {
+    AvenBuildStep *exe_step = aven_arena_create(AvenBuildStep, arena);
+    *exe_step = aven_build_common_step_cc_ld_exe_ex(
+        opts,
+        includes,
+        macros,
+        linked_libs,
+        obj_steps,
+        src_path,
+        work_dir_step,
+        arena
+    );
+
+    return aven_build_common_step_run_exe(
+        exe_step,
+        args,
+        arena
+    );
+}
+
+static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe(
+    AvenBuildCommonOpts *opts,
+    AvenStr src_path,
+    AvenBuildStep *work_dir_step,
+    AvenStrSlice args,
+    AvenArena *arena
+) {
+    return aven_build_common_step_cc_ld_run_exe_ex(
+        opts,
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenStrSlice){ 0 },
+        (AvenBuildStepPtrSlice){ 0 },
+        src_path,
+        work_dir_step,
+        args,
+        arena
+    );
+}
 
 #endif // AVEN_BUILD_COMMON_H

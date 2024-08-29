@@ -3,6 +3,7 @@
 
 #include "../aven.h"
 #include "arena.h"
+#include "fs.h"
 #include "str.h"
 
 #define AVEN_BUILD_MAX_ARGS 32
@@ -13,6 +14,27 @@
     typedef int AvenBuildPID;
 #endif
 
+typedef Result(AvenBuildPID) AvenBuildPIDResult;
+typedef enum {
+    AVEN_BUILD_CMD_ERROR_NONE = 0,
+    AVEN_BUILD_CMD_ERROR_FORK,
+} AvenBuildRunCmdError;
+
+AVEN_FN AvenBuildPIDResult aven_build_cmd_run(
+    AvenStrSlice cmd,
+    AvenArena arena
+);
+
+typedef enum {
+    AVEN_BUILD_WAIT_ERROR_NONE = 0,
+    AVEN_BUILD_WAIT_ERROR_WAIT,
+    AVEN_BUILD_WAIT_ERROR_GETCODE,
+    AVEN_BUILD_WAIT_ERROR_PROCESS,
+    AVEN_BUILD_WAIT_ERROR_SIGNAL,
+} AvenBuildWaitError;
+
+AVEN_FN int aven_build_cmd_wait(AvenBuildPID pid);
+
 typedef enum {
     AVEN_BUILD_STEP_STATE_NONE = 0,
     AVEN_BUILD_STEP_STATE_RUNNING,
@@ -21,22 +43,24 @@ typedef enum {
 
 typedef enum {
     AVEN_BUILD_STEP_TYPE_ROOT = 0,
+    AVEN_BUILD_STEP_TYPE_PATH,
     AVEN_BUILD_STEP_TYPE_CMD,
     AVEN_BUILD_STEP_TYPE_RM,
     AVEN_BUILD_STEP_TYPE_RMDIR,
-    AVEN_BUILD_STEP_TYPE_TOUCH,
     AVEN_BUILD_STEP_TYPE_MKDIR,
+    AVEN_BUILD_STEP_TYPE_TRUNC,
+    AVEN_BUILD_STEP_TYPE_COPY,
 } AvenBuildStepType;
 
 typedef union {
     AvenStrSlice cmd;
     AvenStr rm;
     AvenStr rmdir;
+    AvenStr copy;
 } AvenBuildStepData;
 
-typedef struct AvenBuildStepNode AvenBuildStepNode;
-
 typedef Optional(AvenStr) AvenBuildOptionalPath;
+typedef struct AvenBuildStepNode AvenBuildStepNode;
 
 typedef struct AvenBuildStep {
     AvenBuildStepNode *dep;
@@ -58,24 +82,6 @@ struct AvenBuildStepNode {
 typedef Slice(AvenBuildStep) AvenBuildStepSlice;
 typedef Slice(AvenBuildStep *) AvenBuildStepPtrSlice;
 
-typedef Result(AvenBuildPID) AvenBuildPIDResult;
-typedef enum {
-    AVEN_BUILD_CMD_ERROR_NONE = 0,
-    AVEN_BUILD_CMD_ERROR_FORK,
-} AvenBuildRunCmdError;
-
-AvenBuildPIDResult aven_build_cmd_run(AvenStrSlice cmd, AvenArena arena);
-
-typedef enum {
-    AVEN_BUILD_WAIT_ERROR_NONE = 0,
-    AVEN_BUILD_WAIT_ERROR_WAIT,
-    AVEN_BUILD_WAIT_ERROR_GETCODE,
-    AVEN_BUILD_WAIT_ERROR_PROCESS,
-    AVEN_BUILD_WAIT_ERROR_SIGNAL,
-} AvenBuildWaitError;
-
-int aven_build_wait(AvenBuildPID pid);
-
 static inline AvenBuildStep aven_build_step_cmd(
     AvenBuildOptionalPath out_path,
     AvenStrSlice cmd_slice
@@ -91,17 +97,17 @@ static inline AvenBuildStep aven_build_step_root(void) {
     return (AvenBuildStep){ .type = AVEN_BUILD_STEP_TYPE_ROOT };
 }
 
+static inline AvenBuildStep aven_build_step_path(AvenStr path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_PATH,
+        .out_path = { .valid = true, .value = path },
+    };
+}
+
 static inline AvenBuildStep aven_build_step_mkdir(AvenStr dir_path) {
     return (AvenBuildStep){
         .type = AVEN_BUILD_STEP_TYPE_MKDIR,
         .out_path = { .valid = true, .value = dir_path },
-    };
-}
-
-static inline AvenBuildStep aven_build_step_touch(AvenStr file_path) {
-    return (AvenBuildStep){
-        .type = AVEN_BUILD_STEP_TYPE_TOUCH,
-        .out_path = { .valid = true, .value = file_path },
     };
 }
 
@@ -119,10 +125,23 @@ static inline  AvenBuildStep aven_build_step_rmdir(AvenStr dir_path) {
     };
 }
 
-typedef enum {
-    AVEN_BUILD_STEP_ADD_DEP_ERROR_NONE = 0,
-    AVEN_BUILD_STEP_ADD_DEP_ERROR_ALLOC,
-} AvenBuildStepAddDepError;
+static inline AvenBuildStep aven_build_step_trunc(AvenStr file_path) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_TRUNC,
+        .out_path = { .valid = true, .value = file_path },
+    };
+}
+
+static inline AvenBuildStep aven_build_step_copy(
+    AvenStr in_file_path,
+    AvenStr out_file_path
+) {
+    return (AvenBuildStep){
+        .type = AVEN_BUILD_STEP_TYPE_COPY,
+        .data = { .copy = in_file_path },
+        .out_path = { .valid = true, .value = out_file_path },
+    };
+}
 
 static inline void aven_build_step_add_dep(
     AvenBuildStep *step,
@@ -133,7 +152,6 @@ static inline void aven_build_step_add_dep(
         AvenBuildStepNode,
         arena
     );
-
     *node = (AvenBuildStepNode){
         .next = step->dep,
         .step = dep,
@@ -148,25 +166,24 @@ typedef enum {
     AVEN_BUILD_STEP_RUN_ERROR_CMD,
     AVEN_BUILD_STEP_RUN_ERROR_RM,
     AVEN_BUILD_STEP_RUN_ERROR_RMDIR,
-    AVEN_BUILD_STEP_RUN_ERROR_TOUCH,
     AVEN_BUILD_STEP_RUN_ERROR_MKDIR,
+    AVEN_BUILD_STEP_RUN_ERROR_TRUNC,
+    AVEN_BUILD_STEP_RUN_ERROR_COPY,
     AVEN_BUILD_STEP_RUN_ERROR_OUTPATH,
     AVEN_BUILD_STEP_RUN_ERROR_BADTYPE,
 } AvenBuildStepRunError;
 
-int aven_build_step_run(AvenBuildStep *step, AvenArena arena);
-void aven_build_step_clean(AvenBuildStep *step);
-void aven_build_step_reset(AvenBuildStep *step);
+AVEN_FN int aven_build_step_run(AvenBuildStep *step, AvenArena arena);
+AVEN_FN void aven_build_step_clean(AvenBuildStep *step);
+AVEN_FN void aven_build_step_reset(AvenBuildStep *step);
 
-#if defined(AVEN_BUILD_IMPLEMENTATION) or defined(AVEN_IMPLEMENTATION)
+#ifdef AVEN_IMPLEMENTATION
 
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #ifdef _WIN32
@@ -236,7 +253,10 @@ void aven_build_step_reset(AvenBuildStep *step);
     #include <sys/wait.h>
 #endif
 
-AvenBuildPIDResult aven_build_cmd_run(AvenStrSlice cmd, AvenArena arena) {
+AVEN_FN AvenBuildPIDResult aven_build_cmd_run(
+    AvenStrSlice cmd,
+    AvenArena arena
+) {
     AvenStr cmd_str = aven_str_join(
         cmd,
         ' ',
@@ -302,7 +322,7 @@ AvenBuildPIDResult aven_build_cmd_run(AvenStrSlice cmd, AvenArena arena) {
 #endif
 }
 
-int aven_build_wait(AvenBuildPID pid) {
+AVEN_FN int aven_build_cmd_wait(AvenBuildPID pid) {
 #ifdef _WIN32
     uint32_t result = WaitForSingleObject(pid, WIN_INFINITE);
     if (result != 0) {
@@ -349,12 +369,12 @@ static int aven_build_step_wait(AvenBuildStep *step) {
         return 0;
     }
 
-    int error = aven_build_wait(step->pid);
+    int error = aven_build_cmd_wait(step->pid);
     step->state = AVEN_BUILD_STEP_STATE_DONE;
     return error;
 }
 
-int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
+AVEN_FN int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
     if (step->state != AVEN_BUILD_STEP_STATE_NONE) {
         return 0;
     }
@@ -375,6 +395,7 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
 
     step->state = AVEN_BUILD_STEP_STATE_RUNNING;
 
+    int error = 0;;
     AvenBuildPIDResult result;
     switch (step->type) {
         case AVEN_BUILD_STEP_TYPE_ROOT:
@@ -393,56 +414,54 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
             break;
         case AVEN_BUILD_STEP_TYPE_RM:
             printf("rm %s\n", step->data.rm.ptr);
-            remove(step->data.rm.ptr);
+            error = aven_fs_rm(step->data.rm);
+            if (error != 0) {
+                return AVEN_BUILD_STEP_RUN_ERROR_RM;
+            }
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         case AVEN_BUILD_STEP_TYPE_RMDIR:
             printf("rmdir %s\n", step->data.rmdir.ptr);
-            rmdir(step->data.rmdir.ptr);
+            error = aven_fs_rmdir(step->data.rmdir);
+            if (error != 0) {
+                return AVEN_BUILD_STEP_RUN_ERROR_RMDIR;
+            }
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
-        case AVEN_BUILD_STEP_TYPE_TOUCH:
+        case AVEN_BUILD_STEP_TYPE_TRUNC:
             if (!step->out_path.valid) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
-            printf("touch %s\n", step->out_path.value.ptr);
-#ifdef _WIN32
-            int fd = open(
-                step->out_path.value.ptr,
-                _O_CREAT | _O_TRUNC | _O_WRONLY,
-                _S_IREAD | _S_IWRITE
-            );
-#else
-            int fd = open(
-                step->out_path.value.ptr,
-                O_CREAT | O_TRUNC | O_WRONLY,
-                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
-            );
-#endif
-            if (fd < 0) {
-                return AVEN_BUILD_STEP_RUN_ERROR_TOUCH;
+            printf("truncate -s 0 %s\n", step->out_path.value.ptr);
+            error = aven_fs_trunc(step->out_path.value);
+            if (error != 0) {
+                return AVEN_BUILD_STEP_RUN_ERROR_TRUNC;
             }
-            close(fd);
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         case AVEN_BUILD_STEP_TYPE_MKDIR:
             if (!step->out_path.valid) {
                 return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
-#ifdef _WIN32
-            int error = mkdir(step->out_path.value.ptr);
-#else
-            int error = mkdir(
-                step->out_path.value.ptr,
-                S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
-            );
-#endif
-            if (error != 0 && errno != EEXIST) {
+            error = aven_fs_mkdir(step->out_path.value);
+            if (error != 0) {
                 return AVEN_BUILD_STEP_RUN_ERROR_MKDIR;
             }
-            if (error == 0) {
-                printf("mkdir %s\n", step->out_path.value.ptr);
+            printf("mkdir %s\n", step->out_path.value.ptr);
+            step->state = AVEN_BUILD_STEP_STATE_DONE;
+            break;
+        case AVEN_BUILD_STEP_TYPE_COPY:
+            if (!step->out_path.valid) {
+                return AVEN_BUILD_STEP_RUN_ERROR_OUTPATH;
             }
+            error = aven_fs_copy(
+                step->data.copy,
+                step->out_path.value
+            );
+            if (error != 0) {
+                return AVEN_BUILD_STEP_RUN_ERROR_COPY;
+            }
+            printf("cp %s %s\n", step->data.copy.ptr, step->out_path.value.ptr);
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         default:
@@ -452,10 +471,10 @@ int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
     return 0;
 }
 
-void aven_build_step_clean(AvenBuildStep *step) {
+AVEN_FN void aven_build_step_clean(AvenBuildStep *step) {
     if (step->out_path.valid) {
-        remove(step->out_path.value.ptr);
-        rmdir(step->out_path.value.ptr);
+        aven_fs_rm(step->out_path.value);
+        aven_fs_rmdir(step->out_path.value);
     }
     step->state = AVEN_BUILD_STEP_STATE_NONE;
 
@@ -464,7 +483,7 @@ void aven_build_step_clean(AvenBuildStep *step) {
     }
 }
 
-void aven_build_step_reset(AvenBuildStep *step) {
+AVEN_FN void aven_build_step_reset(AvenBuildStep *step) {
     step->state = AVEN_BUILD_STEP_STATE_NONE;
 
     for (AvenBuildStepNode *dep = step->dep; dep != NULL; dep = dep->next) {
@@ -472,6 +491,6 @@ void aven_build_step_reset(AvenBuildStep *step) {
     }
 }
 
-#endif // AVEN_BUILD_IMPLEMENTATOIN
+#endif // AVEN_IMPLEMENTATOIN
 
 #endif // AVEN_BUILD_H
