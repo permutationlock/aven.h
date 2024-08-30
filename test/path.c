@@ -13,7 +13,6 @@ typedef struct {
     size_t nparts;
 } TestAvenPathArgs;
 
-
 AvenTestResult test_aven_path(void *args) {
     TestAvenPathArgs *pargs = args;
     AvenArena arena = test_arena;

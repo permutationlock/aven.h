@@ -23,28 +23,33 @@ AVEN_FN int aven_dl_close(void *handle);
     AVEN_FN void *aven_dl_open(AvenStr fname) {
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
-        char buffer[AVEN_DL_MAX_PATH_LEN + 5];
+        if (fname.len < 5) {
+            return NULL;
+        }
 
-        memcpy(buffer, fname.ptr, fname.len);
-        buffer[fname.len] = '.';
-        buffer[fname.len + 1] = 'd';
-        buffer[fname.len + 2] = 'l';
-        buffer[fname.len + 3] = 'l';
-        buffer[fname.len + 4] = '\0';
+        int dot_index = (int)fname.len - 1;
+        for (; dot_index > 0; dot_index -= 1) {
+            if (slice_get(fname, (size_t)dot_index) == '.') {
+                break;
+            }
+        }
+
+        if (dot_index == 0) {
+            return NULL;
+        }
 
         char temp_buffer[
             AVEN_DL_MAX_PATH_LEN +
-            sizeof(aven_dl_suffix) +
-            sizeof(buffer)
+            sizeof(aven_dl_suffix)
         ];
-        memcpy(temp_buffer, buffer, fname.len);
+        memcpy(temp_buffer, fname.ptr, (size_t)dot_index);
         memcpy(
-            &temp_buffer[fname.len],
+            &temp_buffer[dot_index],
             aven_dl_suffix,
             sizeof(aven_dl_suffix)
         );
 
-        int success = CopyFileA(buffer, temp_buffer, false);
+        int success = CopyFileA(fname.ptr, temp_buffer, false);
         if (success == 0) {
             return NULL;
         }
@@ -63,17 +68,7 @@ AVEN_FN int aven_dl_close(void *handle);
     #include <dlfcn.h>
 
     AVEN_FN void *aven_dl_open(AvenStr fname) {
-        assert(fname.len < AVEN_DL_MAX_PATH_LEN);
-
-        char buffer[AVEN_DL_MAX_PATH_LEN + 4];
-        memcpy(buffer, fname.ptr, fname.len);
-
-        buffer[fname.len] = '.';
-        buffer[fname.len + 1] = 's';
-        buffer[fname.len + 2] = 'o';
-        buffer[fname.len + 3] = 0;
-
-        return dlopen(buffer, RTLD_LAZY);
+        return dlopen(fname.ptr, RTLD_LAZY);
     }
 
     AVEN_FN void *aven_dl_sym(void *handle, AvenStr symbol) {

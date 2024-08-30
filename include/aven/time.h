@@ -35,7 +35,7 @@ AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start);
                 ((count % freq) * AVEN_TIME_NSEC_IN_SEC + (freq >> 1)) / freq
             ),
         };
-        if (now->tv_nsec >= AVEN_TIME_NSEC_IN_SEC) {
+        if (now.tv_nsec >= AVEN_TIME_NSEC_IN_SEC) {
             now.tv_sec += 1;
             now.tv_nsec -= AVEN_TIME_NSEC_IN_SEC;
         }
@@ -57,9 +57,9 @@ AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start);
 #endif
 
 AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start) {
-    int64_t seconds = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+    int64_t seconds = (int64_t)end.tv_sec - (int64_t)start.tv_sec;
     int64_t sec_diff = seconds * AVEN_TIME_NSEC_IN_SEC;
-    int64_t nsec_diff = (int64_t)end->tv_nsec - (int64_t)start->tv_nsec;
+    int64_t nsec_diff = (int64_t)end.tv_nsec - (int64_t)start.tv_nsec;
     return sec_diff + nsec_diff;
 }
 

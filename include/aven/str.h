@@ -92,25 +92,39 @@ static inline AvenStrSlice aven_str_split(
     return split_strs;
 }
 
+static inline AvenStr aven_str_concat_slice(
+    AvenStrSlice strs,
+    AvenArena *arena
+) {
+    size_t total_len = 0;
+    for (size_t i = 0; i < strs.len; i += 1) {
+        total_len += slice_get(strs, i).len;
+    }
+
+    AvenStr new_string = { .len = total_len };
+    new_string.ptr = aven_arena_alloc(arena, total_len + 1, 1);
+
+    AvenStr rest_string = new_string;
+    for (size_t i = 0; i < strs.len; i += 1) {
+        AvenStr cur_str = slice_get(strs, i);
+        slice_copy(rest_string, cur_str);
+        rest_string.ptr += cur_str.len;
+        rest_string.len -= cur_str.len;
+    }
+
+    new_string.ptr[new_string.len] = 0;
+
+    return new_string;
+}
+
 static inline AvenStr aven_str_concat(
     AvenStr s1,
     AvenStr s2,
     AvenArena *arena
 ) {
-    char *str_mem = aven_arena_alloc(arena, s1.len + s2.len + 1, 1);
-
-    AvenStr new_string = { .ptr = str_mem, .len = s1.len + s2.len };
-    slice_copy(new_string, s1);
-
-    AvenStr rest_string = {
-        .ptr = new_string.ptr + s1.len,
-        .len = new_string.len - s1.len,
-    };
-    slice_copy(rest_string, s2);
-
-    new_string.ptr[new_string.len] = 0;
-
-    return new_string;
+    AvenStr str_data[] = { s1, s2 };
+    AvenStrSlice strs = { .ptr = str_data, .len = countof(str_data) };
+    return aven_str_concat_slice(strs, arena);
 }
 
 static inline AvenStr aven_str_join(

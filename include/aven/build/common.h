@@ -373,6 +373,50 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
     return opts;
 }
 
+static inline AvenStr aven_build_common_cmacro(
+    AvenStr name,
+    AvenStr value,
+    AvenArena *arena
+) {
+    size_t nspec = 0;
+    for (size_t i = 0; i < value.len; i += 1) {
+        char c = slice_get(value, i);
+        if (c == '\\' or c == '\"') {
+            nspec += 1;
+        }
+    }
+
+    AvenStr macro = { .len = 3 + name.len + value.len + nspec };
+    macro.ptr = aven_arena_alloc(arena, macro.len + 1, 1);
+    macro.ptr[macro.len] = 0;
+
+    size_t write_index = 0;
+    memcpy(macro.ptr, name.ptr, name.len);
+    write_index += name.len;
+
+    slice_get(macro, write_index) = '=';
+    write_index += 1;
+    slice_get(macro, write_index) = '\"';
+    write_index += 1;
+
+    for (size_t i = 0; i < value.len; i += 1) {
+        char c = slice_get(value, i);
+
+        if (c == '\\' or c == '\"') {
+            slice_get(macro, write_index) = '\\';
+            write_index += 1;
+        }
+
+        slice_get(macro, write_index) = c;
+        write_index += 1;
+    }
+
+    slice_get(macro, write_index) = '\"';
+    write_index += 1;
+
+    return macro;
+}
+
 static inline AvenBuildStep aven_build_common_step_subdir(
     AvenBuildStep *dir_step,
     AvenStr subdir_name,

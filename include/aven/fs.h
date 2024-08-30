@@ -27,6 +27,7 @@ typedef enum {
     AVEN_FS_MKDIR_ERROR_NONE = 0,
     AVEN_FS_MKDIR_ERROR_BADPATH,
     AVEN_FS_MKDIR_ERROR_ACCESS,
+    AVEN_FS_MKDIR_ERROR_EXIST,
     AVEN_FS_MKDIR_ERROR_OTHER,
 } AvenFsMkdirError;
 
@@ -129,7 +130,7 @@ AVEN_FN int aven_fs_mkdir(AvenStr path) {
             case ENOENT:
                 return AVEN_FS_MKDIR_ERROR_BADPATH;
             case EEXIST:
-                return 0;
+                return AVEN_FS_MKDIR_ERROR_EXIST;
 #ifndef _WIN32
             case ENAMETOOLONG:
             case ENOTDIR:

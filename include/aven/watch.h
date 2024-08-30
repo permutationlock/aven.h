@@ -4,7 +4,7 @@
 #include "../aven.h"
 #include "str.h"
 
-#define AVEN_WATCH_MAX_HANDLES 64
+#define AVEN_WATCH_MAX_HANDLES 32
 
 #ifdef _WIN32
     typedef void *AvenWatchHandle;
@@ -18,7 +18,7 @@
     #define AVEN_WATCH_HANDLE_INVALID -1
 #endif
 
-typedef Result(bool) AvenWatchResult;
+typedef Result(uint32_t) AvenWatchResult;
 typedef enum {
     AVEN_WATCH_ERROR_NONE = 0,
     AVEN_WATCH_ERROR_FILE,
@@ -36,11 +36,11 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
 #ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
-    #ifndef WIN_INFINITE
-        #define WIN_INFINITE 0xffffffff
+    #ifndef AVEN_WIN_INFINITE
+        #define AVEN_WIN_INFINITE 0xffffffff
     #endif
-    #ifndef WIN_WAIT_TIMEOUT
-        #define WIN_WAIT_TIMEOUT 0x00000102
+    #ifndef AVEN_WIN_WAIT_TIMEOUT
+        #define AVEN_WIN_WAIT_TIMEOUT 0x00000102
     #endif
 
     AvenWatchHandle FindFirstChangeNotificationA(
@@ -69,11 +69,12 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
         AvenWatchHandleSlice handles,
         int timeout
     ) {
+        assert(handles.len < AVEN_WATCH_MAX_HANDLES);
         uint32_t win_timeout = (uint32_t)timeout;
         if (timeout < 0) {
-            win_timeout = WIN_INFINITE;
+            win_timeout = AVEN_WIN_INFINITE;
         }
-        bool signaled = false;
+        uint32_t signaled = 0;
         do {
             uint32_t result = WaitForMultipleObjects(
                 (uint32_t)handles.len,
@@ -81,13 +82,13 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
                 false,
                 win_timeout
             );
-            if (result == WIN_WAIT_TIMEOUT) {
+            if (result == AVEN_WIN_WAIT_TIMEOUT) {
                 return (AvenWatchResult){ .payload = signaled };
             } else if (result >= handles.len) {
                 return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_POLL };
             }
 
-            signaled = true;
+            signaled |= ((uint32_t)1) << result;
             win_timeout = 0;
 
             int success = FindNextChangeNotification(
@@ -144,9 +145,9 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
         AvenWatchHandleSlice handles,
         int timeout
     ) {
-        struct pollfd pfds[AVEN_WATCH_MAX_HANDLES];
         assert(handles.len < AVEN_WATCH_MAX_HANDLES);
 
+        struct pollfd pfds[AVEN_WATCH_MAX_HANDLES];
         for (size_t i = 0; i < handles.len; i += 1) {
             pfds[i] = (struct pollfd){
                 .fd = slice_get(handles, i),
@@ -161,10 +162,14 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
             return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_POLL };
         }
 
+        uint32_t signaled = 0;
         for (size_t i = 0; i < handles.len; i += 1) {
             if ((pfds[i].revents & POLLIN) == 0) {
                 continue;
             }
+
+            signaled |= ((uint32_t)1) << i;
+
 
             unsigned char buffer[32 * sizeof(struct inotify_event)];
 
@@ -181,7 +186,7 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
             } while (len < 0);
         }
         
-        return (AvenWatchResult){ .payload = true };
+        return (AvenWatchResult){ .payload = signaled };
     }
 
     AVEN_FN AvenWatchResult aven_watch_check(

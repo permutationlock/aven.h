@@ -9,6 +9,7 @@
 #include <stdlib.h>
 
 #include "test/path.c"
+#include "test/build_common.c"
 
 #define ARENA_SIZE (4096 * 16)
 
@@ -19,6 +20,7 @@ int main(void) {
     test_arena = aven_arena_init(mem, ARENA_SIZE);
 
     test_path();
+    test_build_common();
 
     return 0;
 }

@@ -25,7 +25,7 @@ AVEN_FN void aven_test(AvenTestCaseSlice tcases, const char *fname);
 #include <stdio.h>
 
 AVEN_FN void aven_test(AvenTestCaseSlice tcases, const char *fname) {
-    printf("running %lu test(s) for %s:", tcases.len, fname);
+    printf("running %lu test(s) for %s:", (unsigned long)tcases.len, fname);
     size_t passed = 0;
     for (size_t i = 0; i < tcases.len; i += 1) {
         AvenTestCase *tcase = &slice_get(tcases, i);
@@ -48,8 +48,8 @@ AVEN_FN void aven_test(AvenTestCaseSlice tcases, const char *fname) {
         printf(
             "\ncompleted tests for %s: %lu passed, %lu failed\n",
             fname,
-            passed,
-            tcases.len - passed
+            (unsigned long)passed,
+            (unsigned long)(tcases.len - passed)
         );
     }
 }
