@@ -33,14 +33,6 @@
 
 #define countof(array) (sizeof(array) / sizeof(*array))
 
-#if __STDC_VERSION__ >= 201112L
-    #include <stdnoreturn.h>
-#elif __STDC_VERSION__ >= 199901L
-    #define noreturn
-#else
-    #error "C99 or later is required"
-#endif
-
 #define Optional(t) struct { t value; bool valid; }
 #define Result(t) struct { t payload; int error; }
 #define Slice(t) struct { t *ptr; size_t len; }

@@ -78,12 +78,10 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CC)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CC },
 #elif defined(_WIN32)
-    #if defined(__GNUC__)
-        #if defined(__clang__)
+    #if defined(__clang__)
             .data = { .arg_str = "clang.exe" },
-        #else
+    #elif defined(__GNUC__)
             .data = { .arg_str = "gcc.exe" },
-        #endif
     #elif defined(_MSC_VER)
             .data = { .arg_str = "cl.exe" },
     #elif defined(__TINYC__)
@@ -92,12 +90,10 @@ AvenArg aven_build_common_args_data[] = {
             .data = { .arg_str = "" },
     #endif
 #else
-    #if defined(__GNUC__)
-        #if defined(__clang__)
+    #if defined(__clang__)
             .data = { .arg_str = "clang" },
-        #else
+    #elif defined(__GNUC__)
             .data = { .arg_str = "gcc" },
-        #endif
     #elif defined(__TINYC__)
             .data = { .arg_str = "tcc" },
     #else
@@ -115,7 +111,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LD },
         },
-#elif defined(_WIN32) and defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = "link.exe" },
@@ -133,12 +129,10 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_AR)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AR },
 #elif defined(_WIN32)
-    #if defined(__GNUC__)
-        #if defined(__clang__)
+    #if defined(__clang__)
             .data = { .arg_str = "llvm-ar.exe" },
-        #else
+    #elif defined(__GNUC__)
             .data = { .arg_str = "ar.exe" },
-        #endif
     #elif defined(_MSC_VER)
             .data = { .arg_str = "lib.exe" },
     #elif defined(__TINYC__)
@@ -147,12 +141,10 @@ AvenArg aven_build_common_args_data[] = {
             .data = { .arg_str = "" },
     #endif
 #else
-    #if defined(__GNUC__)
-        #if defined(__clang__)
+    #if defined(__clang__)
             .data = { .arg_str = "llvm-ar" },
-        #else
+    #elif defined(__GNUC__)
             .data = { .arg_str = "ar" },
-        #endif
     #elif defined(__TINYC__)
             .data = { .arg_str = "tcc" },
     #else
@@ -170,7 +162,11 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCFLAGS)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CCFLAGS },
 #elif defined(_WIN32) and defined(_MSC_VER)
+    #if defined(__clang__)
+            .data = { .arg_str = "-std=c11 -Wno-deprecated-declarations" },
+    #else
             .data = { .arg_str = "/std:c11" },
+    #endif 
 #elif defined(__TINYC__)
             .data = { .arg_str = "-D__BIGGEST_ALIGNMENT__=16" },
 #else
@@ -199,7 +195,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_ARFLAGS)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_ARFLAGS },
-#elif defined(_WIN32) and defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "" },
 #elif defined(__TINYC__)
             .data = { .arg_str = "-ar -rcs" },
@@ -337,21 +333,6 @@ AvenArg aven_build_common_args_data[] = {
         },
     },
     {
-        .name = "-ccflagsep",
-        .description = "C compiler spaces between flag and argument",
-        .type = AVEN_ARG_TYPE_INT,
-        .value = {
-            .type = AVEN_ARG_TYPE_INT,
-#if defined(AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES)
-            .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES },
-#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
-            .data = { .arg_int = 0 },
-#else
-            .data = { .arg_int = 1 },
-#endif
-        },
-    },
-    {
         .name = "-ldlibflag",
         .description = "Linker flag to link library",
         .type = AVEN_ARG_TYPE_STRING,
@@ -397,21 +378,6 @@ AvenArg aven_build_common_args_data[] = {
         },
     },
     {
-        .name = "-ldflagsep",
-        .description = "Linker spaces between flag and argument",
-        .type = AVEN_ARG_TYPE_INT,
-        .value = {
-            .type = AVEN_ARG_TYPE_INT,
-#if defined(AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES)
-            .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES },
-#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
-            .data = { .arg_int = 0 },
-#else
-            .data = { .arg_int = 1 },
-#endif
-        },
-    },
-    {
         .name = "-aroutflag",
         .description = "Archiver flag to specify output file",
         .type = AVEN_ARG_TYPE_STRING,
@@ -428,6 +394,36 @@ AvenArg aven_build_common_args_data[] = {
 #else
         .optional = true,
 #endif
+    },
+    {
+        .name = "-ccflagsep",
+        .description = "C compiler spaces between flag and argument",
+        .type = AVEN_ARG_TYPE_INT,
+        .value = {
+            .type = AVEN_ARG_TYPE_INT,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES)
+            .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES },
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
+            .data = { .arg_int = 0 },
+#else
+            .data = { .arg_int = 1 },
+#endif
+        },
+    },
+    {
+        .name = "-ldflagsep",
+        .description = "Linker spaces between flag and argument",
+        .type = AVEN_ARG_TYPE_INT,
+        .value = {
+            .type = AVEN_ARG_TYPE_INT,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES)
+            .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES },
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
+            .data = { .arg_int = 0 },
+#else
+            .data = { .arg_int = 1 },
+#endif
+        },
     },
     {
         .name = "-arflagsep",
