@@ -18,9 +18,10 @@ The library has expanded to include:
  - slice based strings: `aven/string.h`
  - a bare-bones test framework: `aven/test.h`
  - portable high precision timing: `aven/time.h`
- - portable directory watching: `aven/watch.h`
+ - portable directory watching (Windows + Linux only): `aven/watch.h`
 
-Everything is cross-platform (POSIX[^1] and Windows). 
+Everything is cross-platform for Linux and Windows. Many things will work
+on non-Linux POSIX systems, but not all[^1].
 
 ## Minimizing namespace polution
 
@@ -40,23 +41,25 @@ When used as a header only library via the `AVEN_IMPLEMENTATION` macro,
 a small number of other C standard library headers will be included.
 For Windows targets, bespoke definitions are used in lieu of
 any Windows, MSVC, or MinGW platform specific headers.
-For POSIX targets, some files require POSIX features to be enabled via
+For Linux targets, some files require POSIX features to be enabled via
 the `_POSIX_C_SOURCE` macro, and some POSIX specific headers may be included,
-e.g. `fcntl.h`, `sys/stat.h`, `sys/wait.h`, and `unistd.h` [^3].
+e.g. `fcntl.h`, `sys/stat.h`, `sys/wait.h`, and `unistd.h` [^3]. Some Linux
+specific features are used where necessary, e.g. `sys/inotify.h` for directory
+watching and `/proc/self/exe` for exe path discovery.
 
 ## Aven C build system
 
 The most prominent part of the library is the build system. I've long been
-frustrated by how non-portable Makefiles are, and how complicated larger build
-systems are. I wanted my build system to satisfy the following requirements:
+frustrated by how non-portable Makefiles are, and the complications of
+depending on a larger build systems like CMake. I wanted a build system
+that satisfies the following requirements:
 
  - it should depend only on the existence of a C compiler toolchain:
    a C compiler (`cc`), an archiver (`ar`), and a linker (`cc` or a separate
    `ld`);
  - it should include a portable API to interact with the filesystem
    (`mkdir`, `rm`, `rmdir`, `touch`) wihtout relying on external binaries[^2];
- - build scripts should describe steps (evokations of the above tools/actions)
-   and the dependencies between steps;
+ - builds should be directed graphs of steps and dependencies between steps;
  - the user must be able to specify exactly what executables and flags will
    be used for each build tool, e.g. how the variables `CC` and `CFLAGS` are
    used in Makefiles;
@@ -66,18 +69,18 @@ systems are. I wanted my build system to satisfy the following requirements:
 The following toochains are fully supported, e.g. configuration
 defaults will work out-of-the-box when one is used to compile the `build.c`. 
 
- - GNU (POSIX + Windows w/[MinGW][3]): -cc `gcc` -ar `ar`
- - clang (POSIX + Windows w/MSVC or MinGW): -cc `clang` -ar `llvm-ar`
+ - GNU (Linux + Windows w/[MinGW][3]): -cc `gcc` -ar `ar`
+ - clang (Linux + Windows w/MSVC or MinGW): -cc `clang` -ar `llvm-ar`
  - MSVC (Windows): -cc `cl.exe` -ld `link.ex` -ar `lib.exe`
- - [tinycc][5] (POSIX + Windows): -cc `tcc` -ccflags
+ - [tinycc][5] (Linux + Windows): -cc `tcc` -ccflags
    "-D\_\_BIGGEST\_ALIGNMENT\_\_=16" -ar `tcc` -arflags "-ar -rcs"
 
 The following toolchains are undectectable from predefined macros, but have
 been tested with the indicated configuration.
 
- - [Zig][1] (POSIX + Windows): -cc `zig` -ccflags "cc" -ldflags "cc" -ar `zig`
+ - [Zig][1] (Linux + Windows): -cc `zig` -ccflags "cc" -ldflags "cc" -ar `zig`
    -arflags "ar -rcs"
- - [cproc][4] w/GNU (POSIX): -cc `cproc` -ccflags "-std=c11" -ar `ar`
+ - [cproc][4] w/GNU (Linux): -cc `cproc` -ccflags "-std=c11" -ar `ar`
 
 Hopefully many other toolchains are supported as well! The MSVC
 toolchain is so weird that the build configuration has been expanded to be
@@ -89,20 +92,20 @@ A static object file can built using the contained build system.
 
 ### Building the build system
 
-On POSIX systems you can build the build system by simply running
+On Linux systems you can compile the build system with `make`.
 
 ```shell
 make
 ```
 
-You can also just compile it with your favorite C compiler,
+You can also simply compile it manually with your favorite C compiler,
 e.g. using [tinycc][5] on Linux
 
 ```shell
 tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
 ```
 
-or MSVC on Windows
+or MSVC on Windows.
 
 ```shell
 cl /Fe:build.exe build.c
@@ -132,12 +135,14 @@ cl /Fe:build.exe build.c
 ./build clean
 ```
 
-[^1]: Finding the path to a running executable is not standard even for
-    POSIX systems. Currently `aven_path_exe` is implemented
+[^1]: Some things like file system notifications and detecting the path to a
+    running executable are not standard across
+    POSIX systems. Currently everything in `aven/watch.h` and the
+    `aven_path_exe` function are implemented
     for Windows and Linux only.
 
 [^2]: If you have ever tried to write a `make clean` step that works
-    on both Linux and Windows, then you know the motivation here :(
+    on both Linux and Windows, then you know my motivation here :(
 
 [^3]: I like to know what is in my C namespace. I am a [musl][6]
       man and can easliy read through the well written libc and POSIX headers.

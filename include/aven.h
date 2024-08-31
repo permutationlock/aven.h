@@ -5,10 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Inspired by and/or copied from Chris Wellons (https://nullprogram.com)
+
 #define or ||
 #define and &&
-
-// Inspired by and/or copied from Chris Wellons (https://nullprogram.com)
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
@@ -41,7 +41,7 @@
     #error "C99 or later is required"
 #endif
 
-#define  Optional(t) struct { t value; bool valid; }
+#define Optional(t) struct { t value; bool valid; }
 #define Result(t) struct { t payload; int error; }
 #define Slice(t) struct { t *ptr; size_t len; }
 #define List(t, n) struct { size_t len; t array[n]; }
@@ -75,7 +75,7 @@ typedef Slice(unsigned char) ByteSlice;
         .len = s.len * sizeof(*s.ptr), \
     }
 
-#ifdef _MSC_VER
+#if defined(_WIN32) and defined(_MSC_VER)
     void *memcpy(void *s1, const void *s2, size_t n);
 #else
     void *memcpy(void *restrict s1, const void *restrict s2, size_t n);

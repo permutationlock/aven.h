@@ -23,6 +23,7 @@ typedef enum {
     AVEN_WATCH_ERROR_NONE = 0,
     AVEN_WATCH_ERROR_FILE,
     AVEN_WATCH_ERROR_POLL,
+    AVEN_WATCH_ERROR_UNSUPPORTED,
 } AvenWatchError;
 
 AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname);
@@ -116,7 +117,7 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
     AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
         FindCloseChangeNotification(handle);
     }
-#else
+#elif defined(__linux__)
     #include <errno.h>
 
     #include <poll.h>
@@ -199,6 +200,33 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
 
     AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
         close(handle);
+    }
+#else
+    AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname) {
+        (void)dirname;
+        return AVEN_WATCH_HANDLE_INVALID;
+    }
+
+    AVEN_FN AvenWatchResult aven_watch_check_multiple(
+        AvenWatchHandleSlice handles,
+        int timeout
+    ) {
+        (void)handles;
+        (void)timeout;
+        return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_UNSUPPORTED };
+    }
+
+    AVEN_FN AvenWatchResult aven_watch_check(
+        AvenWatchHandle handle,
+        int timeout
+    ) {
+        (void)handle;
+        (void)timeout;
+        return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_UNSUPPORTED };
+    }
+
+    AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
+        (void)handle;
     }
 #endif
 

@@ -151,10 +151,7 @@ AVEN_FN void aven_build_step_reset(AvenBuildStep *step);
 
 #ifdef AVEN_IMPLEMENTATION
 
-#include <errno.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 static int aven_build_step_wait(AvenBuildStep *step) {
     if (step->state != AVEN_BUILD_STEP_STATE_RUNNING) {

@@ -30,6 +30,11 @@ AVEN_FN AvenStr aven_path_rel_diff(
 );
 
 typedef Result(AvenStr) AvenPathResult;
+typedef enum {
+    AVEN_PATH_EXE_ERROR_NONE = 0,
+    AVEN_PATH_EXE_ERROR_FAIL,
+    AVEN_PATH_EXE_ERROR_UNSUPPORTED,
+} AvenPathExeError;
 
 AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena);
 
@@ -255,7 +260,7 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena) {
     char buffer[AVEN_PATH_MAX_LEN];
     uint32_t len = GetModuleFileNameA(NULL, buffer, countof(buffer));
     if (len <= 0 or len == countof(buffer)) {
-        return (AvenPathResult){ .error = 1 };
+        return (AvenPathResult){ .error = AVEN_PATH_EXE_ERROR_FAIL };
     }
  
     AvenStr path = { .len = len + 1 };
@@ -269,7 +274,7 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena) {
     char buffer[AVEN_PATH_MAX_LEN];
     ssize_t len = readlink("/proc/self/exe", buffer, countof(buffer));
     if (len <= 0 or len == countof(buffer)) {
-        return (AvenPathResult){ .error = 1 };
+        return (AvenPathResult){ .error = AVEN_PATH_EXE_ERROR_FAIL };
     }
 
     AvenStr path = { .len = (size_t)len + 1 };
@@ -280,8 +285,8 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena) {
 
     return (AvenPathResult){ .payload = path };
 #else
-    assert(false);
-    return (AvenStrResult){ .error = 1 };
+    (void)arena;
+    return (AvenStrResult){ .error = AVEN_PATH_EXE_ERROR_UNSUPPORTED };
 #endif
 }
 

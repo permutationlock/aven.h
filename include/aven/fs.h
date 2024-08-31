@@ -56,7 +56,6 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #ifdef AVEN_IMPLEMENTATION
 
 #include <errno.h>
-#include <stdio.h>
 
 #ifdef _WIN32
     int open(const char *filename, int oflag, ...);
