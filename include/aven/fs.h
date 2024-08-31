@@ -58,16 +58,33 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #include <errno.h>
 #include <stdio.h>
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#ifdef _WIN32
+    int open(const char *filename, int oflag, ...);
+    int close(int fd);
+    int read(int fd, void *buffer, unsigned int buffer_size);
+    int write(int fd, const void *buffer, unsigned int buffer_size);
+    int unlink(const char *path);
+    int mkdir(const char *path);
+    int rmdir(const char *path);
+
+    int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
+    uint32_t GetLastError(void);
+
+    #define O_CREAT 0x0100
+    #define O_TRUNC 0x0200
+    #define O_RDONLY 0x0000
+    #define O_WRONLY 0x0001
+
+    #define S_IREAD 0x0100
+    #define S_IWRITE 0x0080
+#else
+    #include <fcntl.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
+#endif
 
 AVEN_FN int aven_fs_rm(AvenStr path) {
-#ifdef _WIN32
-    int error = remove(path.ptr);
-#else
     int error = unlink(path.ptr);
-#endif
     if (error != 0) {
         switch (errno) {
             case EACCES:
@@ -148,8 +165,8 @@ AVEN_FN int aven_fs_trunc(AvenStr path) {
 #ifdef _WIN32
     int fd = open(
         path.ptr,
-        _O_CREAT | _O_TRUNC | _O_WRONLY,
-        _S_IREAD | _S_IWRITE
+        O_CREAT | O_TRUNC | O_WRONLY,
+        S_IREAD | S_IWRITE
     );
 #else
     int fd = -1;
@@ -181,9 +198,6 @@ AVEN_FN int aven_fs_trunc(AvenStr path) {
 
     return 0;
 }
-
-int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
-uint32_t GetLastError(void);
 
 AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath) {
 #ifdef _WIN32

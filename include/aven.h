@@ -73,7 +73,11 @@ typedef Slice(unsigned char) ByteSlice;
         .len = s.len * sizeof(*s.ptr), \
     }
 
-void *memcpy(void *restrict s1, const void *restrict s2, size_t n);
+#ifdef _MSC_VER
+    void *memcpy(void *s1, const void *s2, size_t n);
+#else
+    void *memcpy(void *restrict s1, const void *restrict s2, size_t n);
+#endif
 
 #define slice_copy(d, s) memcpy( \
         d.ptr, \

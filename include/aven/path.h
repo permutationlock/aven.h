@@ -121,6 +121,10 @@ AVEN_FN AvenStr aven_path_rel_dir(AvenStr path, AvenArena *arena) {
 
 AVEN_FN bool aven_path_is_abs(AvenStr path) {
 #ifdef _WIN32
+    if (path.len <= 1) {
+        return false;
+    }
+
     if (slice_get(path, 1) == ':') {
         return true;
     }
@@ -137,6 +141,9 @@ AVEN_FN AvenStr aven_path_rel_intersect(
     AvenStr path2,
     AvenArena *arena
 ) {
+    if (path1.len == 0 or path2.len == 0) {
+        return aven_str("");
+    }
     if (slice_get(path1, 0) != slice_get(path2, 0)) {
         return aven_str("");
     }
@@ -201,7 +208,10 @@ AVEN_FN AvenStr aven_path_rel_diff(
         AVEN_PATH_SEP,
         arena
     );
-    if (aven_str_compare(slice_get(path2_parts, 0), aven_str("."))) {
+    if (
+        path2_parts.len > 0 and
+        aven_str_compare(slice_get(path2_parts, 0), aven_str("."))
+    ) {
         path2_parts.ptr += 1;
         path2_parts.len -= 1;
     }

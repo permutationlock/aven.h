@@ -237,7 +237,7 @@ int test_path(void) {
 #ifdef _WIN32
                 .expected = ".",
                 .path1 = "dir",
-                .path1 = "dir",
+                .path2 = "dir",
 #else
                 .expected = ".",
                 .path1 = "dir",
@@ -252,7 +252,7 @@ int test_path(void) {
 #ifdef _WIN32
                 .expected = ".",
                 .path1 = ".\\dir",
-                .path1 = "dir",
+                .path2 = "dir",
 #else
                 .expected = ".",
                 .path1 = "./dir",

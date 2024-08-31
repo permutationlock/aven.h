@@ -42,8 +42,6 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
 
 #ifdef AVEN_IMPLEMENTATION
 
-#include <unistd.h>
-
 #ifdef _WIN32
     typedef struct {
         uint32_t len;
@@ -110,6 +108,7 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
 #else
     #include <sys/wait.h>
     #include <signal.h>
+    #include <unistd.h>
 #endif
 
 AVEN_FN AvenProcIdResult aven_proc_cmd(
