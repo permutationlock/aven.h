@@ -50,13 +50,12 @@ watching and `/proc/self/exe` for exe path discovery.
 ## Aven C build system
 
 The most prominent part of the library is the build system. I've long been
-frustrated by how non-portable Makefiles are, and the complications of
-depending on a larger build systems like CMake. I wanted a build system
+frustrated by the poor portability of Makefiles and the complications of
+depending on a larger build system like CMake. I wanted a build system
 that satisfies the following requirements:
 
- - it should depend only on the existence of a C compiler toolchain:
-   a C compiler (`cc`), an archiver (`ar`), and a linker (`cc` or a separate
-   `ld`);
+ - it should depend only on the existence of a C compiler (`cc`), a linker
+   (`cc` or a separate `ld`), and (maybe) an archiver (`ar`);
  - it should include a portable API to interact with the filesystem
    (`mkdir`, `rm`, `rmdir`, `touch`) wihtout relying on external binaries[^2];
  - builds should be directed graphs of steps and dependencies between steps;
@@ -99,7 +98,13 @@ make
 ```
 
 You can also simply compile it manually with your favorite C compiler,
-e.g. using [tinycc][5] on Linux
+e.g. using `gcc`
+
+```shell
+gcc -o build build.c
+```
+
+or [tinycc][5]
 
 ```shell
 tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
@@ -108,7 +113,7 @@ tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
 or MSVC on Windows.
 
 ```shell
-cl /Fe:build.exe build.c
+cl.exe /Fe:build.exe build.c
 ```
 
 ### Showing the build system help message
