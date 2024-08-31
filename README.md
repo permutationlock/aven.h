@@ -40,10 +40,10 @@ If using the standalone `aven/time.h` portable timing header, then the libc
 When used as a header only library via the `AVEN_IMPLEMENTATION` macro,
 a small number of other C standard library headers will be included.
 For Windows targets, bespoke definitions are used in lieu of
-any Windows, MSVC, or MinGW platform specific headers.
-For Linux targets, some files require POSIX features to be enabled via
-the `_POSIX_C_SOURCE` macro, and some POSIX specific headers may be included,
-e.g. `fcntl.h`, `sys/stat.h`, `sys/wait.h`, and `unistd.h` [^3]. Some Linux
+any Windows, MSVC, or MinGW platform specific headers[^3].
+For Linux targets, some files require POSIX features to be enabled
+( `_POSIX_C_SOURCE >= 200112L`), and a few POSIX specific headers will be included,
+e.g. `fcntl.h`, `sys/stat.h`, `sys/wait.h`, and `unistd.h`. Linux
 specific features are used where necessary, e.g. `sys/inotify.h` for directory
 watching and `/proc/self/exe` for exe path discovery.
 
@@ -113,7 +113,7 @@ tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
 or MSVC on Windows.
 
 ```shell
-cl.exe /Fe:build.exe build.c
+cl.exe /std:c11 /Fe:build.exe build.c
 ```
 
 ### Showing the build system help message
@@ -150,8 +150,9 @@ cl.exe /Fe:build.exe build.c
     on both Linux and Windows, then you know my motivation here :(
 
 [^3]: I like to know what is in my C namespace. I am a [musl][6]
-      man and can easliy read through the well written libc and POSIX headers.
-      For targets with less "accessible" headers, I tried to take more control.
+      man and can easliy read through the  libc and Linux headers.
+      For targets like Windows with less "accessible" headers, but
+      great documentation, I decided to take more control.
 
 [1]: https://ziglang.org/
 [2]: https://nullprogram.com/blog/2023/09/27/
