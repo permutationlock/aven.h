@@ -1,10 +1,12 @@
 #ifndef AVEN_H
 #define AVEN_H
 
-#include <iso646.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#define or ||
+#define and &&
 
 // Inspired by and/or copied from Chris Wellons (https://nullprogram.com)
 
