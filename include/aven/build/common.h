@@ -131,10 +131,10 @@ AvenArg aven_build_common_args_data[] = {
 #elif defined(_WIN32)
     #if defined(__clang__)
             .data = { .arg_str = "llvm-ar.exe" },
-    #elif defined(__GNUC__)
-            .data = { .arg_str = "ar.exe" },
     #elif defined(_MSC_VER)
-            .data = { .arg_str = "lib.exe" },
+        .data = { .arg_str = "lib.exe" },
+    #elif defined(__GNUC__)
+        .data = { .arg_str = "ar.exe" },
     #elif defined(__TINYC__)
             .data = { .arg_str = "tcc.exe" },
     #else
@@ -213,7 +213,7 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_OBEXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_OBEXT },
 #elif defined(_WIN32)
-    #if defined(_MSC_VER) or defined(__clang__)
+    #if defined(_MSC_VER)
             .data = { .arg_str = ".obj" },
     #else
             .data = { .arg_str = ".o" },
@@ -262,7 +262,7 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_AREXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AREXT },
 #elif defined(_WIN32)
-    #if defined(_MSC_VER) or defined(__clang__)
+    #if defined(_MSC_VER)
             .data = { .arg_str = ".lib" },
     #else
             .data = { .arg_str = ".a" },
