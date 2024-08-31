@@ -106,8 +106,12 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
     int CloseHandle(void *handle);
     int GetExitCodeProcess(void *handle, uint32_t *exit_code);
 #else
-    #include <sys/wait.h>
+    #ifndef _POSIX_C_SOURCE
+        #error "kill requires _POSIX_C_SOURCE"
+    #endif
     #include <signal.h>
+
+    #include <sys/wait.h>
     #include <unistd.h>
 #endif
 

@@ -191,6 +191,7 @@ AVEN_FN int aven_build_step_run(AvenBuildStep *step, AvenArena arena) {
     AvenProcIdResult result;
     switch (step->type) {
         case AVEN_BUILD_STEP_TYPE_ROOT:
+        case AVEN_BUILD_STEP_TYPE_PATH:
             step->state = AVEN_BUILD_STEP_STATE_DONE;
             break;
         case AVEN_BUILD_STEP_TYPE_CMD:

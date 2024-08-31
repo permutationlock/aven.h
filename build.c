@@ -42,6 +42,8 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    // Build the library
+
     AvenBuildStep out_dir_step = aven_build_step_mkdir(aven_str("build_out"));
 
     AvenBuildCommonOpts opts = aven_build_common_opts(
@@ -58,14 +60,11 @@ int main(int argc, char **argv) {
     AvenBuildStep root_step = aven_build_step_root();
     aven_build_step_add_dep(&root_step, &libaven_step, &arena);
 
+    // Build and run tests
+
     AvenStr aven_include = libaven_build_include_path(aven_str("."), &arena);
 
-    AvenBuildStep work_dir_step = aven_build_step_mkdir(aven_str("build_work"));
-    AvenBuildStep test_dir_step = aven_build_common_step_subdir(
-        &work_dir_step,
-        aven_str("test"),
-        &arena
-    );
+    AvenBuildStep test_dir_step = aven_build_step_mkdir(aven_str("build_test"));
     AvenBuildStep test_step = aven_build_common_step_cc_ld_run_exe_ex(
         &opts,
         (AvenStrSlice){ .ptr = &aven_include, .len = 1 },
@@ -81,14 +80,16 @@ int main(int argc, char **argv) {
     AvenBuildStep test_root_step = aven_build_step_root();
     aven_build_step_add_dep(&test_root_step, &test_step, &arena);
 
+    // Execute the chosen build step
+
     if (opts.clean) {
         aven_build_step_clean(&root_step);
+        aven_build_step_clean(&test_root_step);
     } else if (opts.test) {
         error = aven_build_step_run(&test_root_step, arena);
         if (error != 0) {
             fprintf(stderr, "TEST FAILED\n");
         }
-        aven_build_step_clean(&test_root_step);
     } else {
         error = aven_build_step_run(&root_step, arena);
         if (error != 0) {

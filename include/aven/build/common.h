@@ -38,10 +38,10 @@ typedef struct {
     AvenBuildCommonCOpts cc;
     AvenBuildCommonLDOpts ld;
     AvenBuildCommonAROpts ar;
-    AvenStr obext;
-    AvenStr exext;
-    AvenStr soext;
-    AvenStr arext;
+    AvenStrSlice obexts;
+    AvenStrSlice exexts;
+    AvenStrSlice soexts;
+    AvenStrSlice arexts;
     bool clean;
     bool test;
 } AvenBuildCommonOpts;
@@ -77,12 +77,32 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CC)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CC },
-#elif defined(_MSC_VER)
-            .data = { .arg_str = "cl.exe" },
 #elif defined(_WIN32)
+    #if defined(__GNUC__)
+        #if defined(__clang__)
+            .data = { .arg_str = "clang.exe" },
+        #else
             .data = { .arg_str = "gcc.exe" },
+        #endif
+    #elif defined(_MSC_VER)
+            .data = { .arg_str = "cl.exe" },
+    #elif defined(__TINYC__)
+            .data = { .arg_str = "tcc.exe" },
+    #else
+            .data = { .arg_str = "" },
+    #endif
 #else
+    #if defined(__GNUC__)
+        #if defined(__clang__)
+            .data = { .arg_str = "clang" },
+        #else
             .data = { .arg_str = "gcc" },
+        #endif
+    #elif defined(__TINYC__)
+            .data = { .arg_str = "tcc" },
+    #else
+            .data = { .arg_str = "" },
+    #endif
 #endif
         },
     },
@@ -95,7 +115,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LD },
         },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER)
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = "link.exe" },
@@ -112,12 +132,32 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_AR)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AR },
-#elif defined(_MSC_VER)
-            .data = { .arg_str = "lib.exe" },
 #elif defined(_WIN32)
+    #if defined(__GNUC__)
+        #if defined(__clang__)
+            .data = { .arg_str = "llvm-ar.exe" },
+        #else
             .data = { .arg_str = "ar.exe" },
+        #endif
+    #elif defined(_MSC_VER)
+            .data = { .arg_str = "lib.exe" },
+    #elif defined(__TINYC__)
+            .data = { .arg_str = "tcc.exe" },
+    #else
+            .data = { .arg_str = "" },
+    #endif
 #else
+    #if defined(__GNUC__)
+        #if defined(__clang__)
+            .data = { .arg_str = "llvm-ar" },
+        #else
             .data = { .arg_str = "ar" },
+        #endif
+    #elif defined(__TINYC__)
+            .data = { .arg_str = "tcc" },
+    #else
+            .data = { .arg_str = "" },
+    #endif
 #endif
         },
     },
@@ -129,8 +169,10 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCFLAGS)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CCFLAGS },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER)
             .data = { .arg_str = "/std:c11" },
+#elif defined(__TINYC__)
+            .data = { .arg_str = "-D__BIGGEST_ALIGNMENT__=16" },
 #else
             .data = { .arg_str = "" },
 #endif
@@ -157,8 +199,10 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_ARFLAGS)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_ARFLAGS },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER)
             .data = { .arg_str = "" },
+#elif defined(__TINYC__)
+            .data = { .arg_str = "-ar -rcs" },
 #else
             .data = { .arg_str = "-rcs" },
 #endif
@@ -172,8 +216,12 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_OBEXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_OBEXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
+    #if defined(_MSC_VER) or defined(__clang__)
             .data = { .arg_str = ".obj" },
+    #else
+            .data = { .arg_str = ".o" },
+    #endif
 #else
             .data = { .arg_str = ".o" },
 #endif
@@ -188,7 +236,7 @@ AvenArg aven_build_common_args_data[] = {
 #if defined(AVEN_BUILD_COMMON_DEFAULT_EXEXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_EXEXT },
 #elif defined(_WIN32)
-            .data = { .arg_str = ".exe" },
+            .data = { .arg_str = ".exe .pdb" },
 #else
             .data = { .arg_str = "" },
 #endif
@@ -196,14 +244,14 @@ AvenArg aven_build_common_args_data[] = {
     },
     {
         .name = "-soext",
-        .description = "File extension for shared libraries",
+        .description = "File extension(s) for shared library files",
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_SOEXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_SOEXT },
 #elif defined(_WIN32)
-            .data = { .arg_str = ".dll" },
+            .data = { .arg_str = ".dll .lib .pdb" },
 #else
             .data = { .arg_str = ".so" },
 #endif
@@ -217,8 +265,12 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_AREXT)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AREXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
+    #if defined(_MSC_VER) or defined(__clang__)
             .data = { .arg_str = ".lib" },
+    #else
+            .data = { .arg_str = ".a" },
+    #endif
 #else
             .data = { .arg_str = ".a" },
 #endif
@@ -232,7 +284,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCINCFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CCINCFLAGEXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/I" },
 #else
             .data = { .arg_str = "-I" },
@@ -247,7 +299,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCDEFFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CCDEFFLAGEXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/D" },
 #else
             .data = { .arg_str = "-D" },
@@ -262,7 +314,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCOBJFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_COBJFLAGEXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/c" },
 #else
             .data = { .arg_str = "-c" },
@@ -277,7 +329,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCOUTFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_COUTFLAGEXT },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/Fo:" },
 #else
             .data = { .arg_str = "-o" },
@@ -292,7 +344,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_INT,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES)
             .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_CCFLAGSPACES },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_int = 0 },
 #else
             .data = { .arg_int = 1 },
@@ -307,7 +359,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_LDLIBFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LDLIBFLAG },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "" },
 #else
             .data = { .arg_str = "-l" },
@@ -322,7 +374,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_LDSHRFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LDSHRFLAG },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/DLL" },
 #else
             .data = { .arg_str = "-shared" },
@@ -337,7 +389,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_LDOUTFLAG)
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LDOUTFLAG },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_str = "/OUT:" },
 #else
             .data = { .arg_str = "-o" },
@@ -352,7 +404,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_INT,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES)
             .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_LDFLAGSPACES },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_int = 0 },
 #else
             .data = { .arg_int = 1 },
@@ -368,7 +420,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AROUTFLAG },
         },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
             .data = { .arg_str = "/OUT:" },
@@ -385,7 +437,7 @@ AvenArg aven_build_common_args_data[] = {
             .type = AVEN_ARG_TYPE_INT,
 #if defined(AVEN_BUILD_COMMON_DEFAULT_ARFLAGSPACES)
             .data = { .arg_int = AVEN_BUILD_COMMON_DEFAULT_ARFLAGSPACES },
-#elif defined(_MSC_VER)
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
             .data = { .arg_int = 0 },
 #else
             .data = { .arg_int = 1 },
@@ -451,10 +503,26 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
         arena
     );
 
-    opts.obext = aven_str_cstr(aven_arg_get_str(arg_slice, "-obext"));
-    opts.exext = aven_str_cstr(aven_arg_get_str(arg_slice, "-exext"));
-    opts.soext = aven_str_cstr(aven_arg_get_str(arg_slice, "-soext"));
-    opts.arext = aven_str_cstr(aven_arg_get_str(arg_slice, "-arext"));
+    opts.obexts = aven_str_split(
+        aven_str_cstr(aven_arg_get_str(arg_slice, "-obext")),
+        ' ',
+        arena
+    );
+    opts.exexts = aven_str_split(
+        aven_str_cstr(aven_arg_get_str(arg_slice, "-exext")),
+        ' ',
+        arena
+    );
+    opts.soexts = aven_str_split(
+        aven_str_cstr(aven_arg_get_str(arg_slice, "-soext")),
+        ' ',
+        arena
+    );
+    opts.arexts = aven_str_split(
+        aven_str_cstr(aven_arg_get_str(arg_slice, "-arext")),
+        ' ',
+        arena
+    );
 
     return opts;
 }
@@ -474,6 +542,31 @@ static inline AvenBuildStep aven_build_common_step_subdir(
     return subdir_step;
 }
 
+static inline void aven_build_common_step_add_path_deps(
+    AvenBuildStep *cmd_step,
+    AvenBuildStep *dir_step,
+    AvenStr fname,
+    AvenStrSlice exts,
+    AvenArena *arena
+) {
+    assert(dir_step->out_path.valid);
+    AvenStr dir_path = dir_step->out_path.value;
+
+    for (size_t i = 0; i < exts.len; i += 1) {
+        AvenBuildStep *path_step = aven_arena_create(AvenBuildStep, arena);
+        *path_step = aven_build_step_path(
+            aven_path(
+                arena,
+                dir_path.ptr,
+                aven_str_concat(fname, slice_get(exts, i), arena).ptr,
+                NULL
+            )
+        );
+        aven_build_step_add_dep(path_step, dir_step, arena);
+        aven_build_step_add_dep(cmd_step, path_step, arena);
+    }
+}
+
 static inline AvenBuildStep aven_build_common_step_cc_ex(
     AvenBuildCommonOpts *opts,
     AvenStrSlice includes,
@@ -491,11 +584,15 @@ static inline AvenBuildStep aven_build_common_step_cc_ex(
         '.',
         arena
     );
-    AvenStr out_fname = slice_get(ext_split, 0);
+    AvenStr ext_free_fname = slice_get(ext_split, 0);
 
-    AvenStr ext = opts->obext;
-    if (ext.len > 0) {
-        out_fname = aven_str_concat(out_fname, ext, arena);
+    AvenStr out_fname = ext_free_fname;
+    if (opts->obexts.len > 0) {
+        out_fname = aven_str_concat(
+            out_fname,
+            slice_get(opts->obexts, 0),
+            arena
+        );
     }
     AvenStr target_path = aven_path(
         arena,
@@ -576,6 +673,20 @@ static inline AvenBuildStep aven_build_common_step_cc_ex(
     AvenBuildStep cc_step = aven_build_step_cmd(out_path, cmd_slice);
     aven_build_step_add_dep(&cc_step, out_dir_step, arena);
 
+    if (opts->obexts.len > 1) {
+        AvenStrSlice extra_exts = {
+            .ptr = opts->obexts.ptr + 1,
+            .len = opts->obexts.len - 1,
+        };
+        aven_build_common_step_add_path_deps(
+            &cc_step,
+            out_dir_step,
+            ext_free_fname,
+            extra_exts,
+            arena
+        );
+    }
+
     return cc_step;
 }
 
@@ -607,14 +718,14 @@ static AvenBuildStep aven_build_common_step_ld(
     assert(out_dir_step->out_path.valid);
     AvenStr out_dir_path = out_dir_step->out_path.value;
 
-    AvenStr ext = { 0 };
+    AvenStrSlice exts = opts->exexts;
     if (shared_lib) {
-        ext = opts->soext;
-    } else {
-        ext = opts->exext;
+        exts = opts->soexts;
     }
-    if (ext.len > 0) {
-        out_fname = aven_str_concat(out_fname, ext, arena);
+
+    AvenStr ext_free_fname = out_fname;
+    if (exts.len > 0) {
+        out_fname = aven_str_concat(out_fname, slice_get(exts, 0), arena);
     }
     AvenStr target_path = aven_path(
         arena,
@@ -697,6 +808,20 @@ static AvenBuildStep aven_build_common_step_ld(
         aven_build_step_add_dep(&link_step, slice_get(obj_steps, j), arena);
     }
     aven_build_step_add_dep(&link_step, out_dir_step, arena);
+
+    if (exts.len > 1) {
+        AvenStrSlice extra_exts = {
+            .ptr = exts.ptr + 1,
+            .len = exts.len - 1,
+        };
+        aven_build_common_step_add_path_deps(
+            &link_step,
+            out_dir_step,
+            ext_free_fname,
+            extra_exts,
+            arena
+        );
+    }
 
     return link_step;
 }
@@ -783,9 +908,13 @@ static inline AvenBuildStep aven_build_common_step_ar(
     assert(out_dir_step->out_path.valid);
     AvenStr out_dir_path = out_dir_step->out_path.value;
 
-    AvenStr ext = opts->arext;
-    if (ext.len > 0) {
-        out_fname = aven_str_concat(out_fname, ext, arena);
+    AvenStr ext_free_fname = out_fname;
+    if (opts->arexts.len > 0) {
+        out_fname = aven_str_concat(
+            out_fname,
+            slice_get(opts->arexts, 0),
+            arena
+        );
     }
     AvenStr target_path = aven_path(
         arena,
@@ -847,6 +976,20 @@ static inline AvenBuildStep aven_build_common_step_ar(
     }
     aven_build_step_add_dep(&ar_step, out_dir_step, arena);
 
+    if (opts->arexts.len > 1) {
+        AvenStrSlice extra_exts = {
+            .ptr = opts->arexts.ptr + 1,
+            .len = opts->arexts.len - 1,
+        };
+        aven_build_common_step_add_path_deps(
+            &ar_step,
+            out_dir_step,
+            ext_free_fname,
+            extra_exts,
+            arena
+        );
+    }
+
     return ar_step;
 }
 
@@ -888,7 +1031,9 @@ static inline AvenBuildStep aven_build_common_step_cc_ld(
 
     assert(obj_step->out_path.valid);
     AvenStr obj_fname = aven_path_fname(obj_step->out_path.value, arena);
-    obj_fname.len -= opts->obext.len;
+    if (opts->obexts.len > 0) {
+        obj_fname.len -= slice_get(opts->obexts, 0).len;
+    }
     AvenStr exe_fname = aven_str_copy(obj_fname, arena);
 
     AvenBuildStep *bin_step = aven_arena_create(AvenBuildStep, arena);
