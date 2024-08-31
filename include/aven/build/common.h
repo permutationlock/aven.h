@@ -163,7 +163,7 @@ AvenArg aven_build_common_args_data[] = {
             .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_CCFLAGS },
 #elif defined(_WIN32) and defined(_MSC_VER)
     #if defined(__clang__)
-            .data = { .arg_str = "-std=c11 -Wno-deprecated-declarations" },
+            .data = { .arg_str = "-std=c11" },
     #else
             .data = { .arg_str = "/std:c11" },
     #endif 

@@ -62,7 +62,7 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
     int close(int fd);
     int read(int fd, void *buffer, unsigned int buffer_size);
     int write(int fd, const void *buffer, unsigned int buffer_size);
-    int unlink(const char *path);
+    int _unlink(const char *path);
     int mkdir(const char *path);
     int rmdir(const char *path);
 
@@ -83,7 +83,11 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #endif
 
 AVEN_FN int aven_fs_rm(AvenStr path) {
+#ifdef _WIN32
+    int error = _unlink(path.ptr);
+#else
     int error = unlink(path.ptr);
+#endif
     if (error != 0) {
         switch (errno) {
             case EACCES:
