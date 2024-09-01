@@ -13,10 +13,17 @@ AVEN_FN int aven_dl_close(void *handle);
 #ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
-    int CopyFileA(const char *fname, const char *copy_fname, int fail_exists);
-    void *LoadLibraryA(const char *fname);
-    void *GetProcAddress(void *handle, const char *symbol);
-    int FreeLibrary(void *handle);
+    __declspec(dllimport) int CopyFileA(
+        const char *fname,
+        const char *copy_fname,
+        int fail_exists
+    );
+    __declspec(dllimport) void *LoadLibraryA(const char *fname);
+    __declspec(dllimport) void *GetProcAddress(
+        void *handle,
+        const char *symbol
+    );
+    __declspec(dllimport) int FreeLibrary(void *handle);
     
     char aven_dl_suffix[] = "_aven_dl_loaded.dll";
 

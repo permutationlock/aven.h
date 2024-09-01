@@ -17,8 +17,8 @@ AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start);
 #ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
-    int QueryPerformanceFrequency(int64_t *freq);
-    int QueryPerformanceCounter(int64_t *count);
+    __declspec(dllimport) int QueryPerformanceFrequency(int64_t *freq);
+    __declspec(dllimport) int QueryPerformanceCounter(int64_t *count);
 
     AVEN_FN AvenTimeInst aven_time_now(void) {
         int64_t freq;

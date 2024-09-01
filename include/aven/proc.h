@@ -8,7 +8,10 @@
 #ifdef _WIN32
     typedef void *AvenProcId;
 
-    int TerminateProcess(AvenProcId pid, unsigned int error_code);
+    __declspec(dllimport) int TerminateProcess(
+        AvenProcId pid,
+        unsigned int error_code
+    );
 #else
     typedef int AvenProcId;
 #endif
@@ -79,7 +82,7 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         uint32_t thread_id;
     } WinProcessInfo;
 
-    int CreateProcessA(
+    __declspec(dllimport) int CreateProcessA(
         const char *application_name,
         char *command_line,
         WinSecurityAttr *process_attr,
@@ -96,15 +99,21 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         #define AVEN_WIN_INFINITE 0xffffffff
     #endif
 
-    uint32_t WaitForSingleObject(void *handle, uint32_t timeout_ms);
+    __declspec(dllimport) uint32_t WaitForSingleObject(
+        void *handle,
+        uint32_t timeout_ms
+    );
 
     #define WIN_STD_INPUT_HANLDE ((uint32_t)-10)
     #define WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
     #define WIN_STD_ERROR_HANLDE ((uint32_t)-12)
 
-    void *GetStdHandle(uint32_t std_handle);
-    int CloseHandle(void *handle);
-    int GetExitCodeProcess(void *handle, uint32_t *exit_code);
+    __declspec(dllimport) void *GetStdHandle(uint32_t std_handle);
+    __declspec(dllimport) int CloseHandle(void *handle);
+    __declspec(dllimport) int GetExitCodeProcess(
+        void *handle,
+        uint32_t *exit_code
+    );
 #else
     #ifndef _POSIX_C_SOURCE
         #error "kill requires _POSIX_C_SOURCE"

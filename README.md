@@ -85,6 +85,19 @@ Hopefully many other toolchains are supported as well! The MSVC
 toolchain is so weird that the build configuration has been expanded to be
 very accommodating.
 
+### Cross-compilation
+
+Since the build system is simple and flexible, cross compilation is achievable
+regardless of your toolchain. Below we build the build system for our native
+`x86_64` Linux machine with TinyCC, but we create build artifacts for
+an `x86_64` Windows target using MinGW.
+
+```
+tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
+./build -cc "x86_64-w64-mingww32-gcc" -ar "x86_64-w64-mingw32-ar" -exext ".exe"
+-soext ".dll"
+```
+
 ## Building the library
 
 A static object file can built using the contained build system.  

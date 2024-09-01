@@ -43,7 +43,11 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena);
 #include <stdarg.h>
 
 #if defined(_WIN32)
-    uint32_t GetModuleFileNameA(void *mod, char *buffer, uint32_t buffer_len);
+    __declspec(dllimport) uint32_t GetModuleFileNameA(
+        void *mod,
+        char *buffer,
+        uint32_t buffer_len
+    );
 #elif defined(__linux__)
     #if !defined(_POSIX_C_SOURCE) or _POSIX_C_SOURCE < 200112L
         #error "readlink requires _POSIX_C_SOURCE >= 200112L"

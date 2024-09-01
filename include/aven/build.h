@@ -3,7 +3,6 @@
 
 #include "../aven.h"
 #include "arena.h"
-#include "fs.h"
 #include "proc.h"
 #include "str.h"
 
@@ -150,6 +149,8 @@ AVEN_FN void aven_build_step_clean(AvenBuildStep *step);
 AVEN_FN void aven_build_step_reset(AvenBuildStep *step);
 
 #ifdef AVEN_IMPLEMENTATION
+
+#include "fs.h"
 
 #include <stdio.h>
 
