@@ -50,49 +50,49 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         uint32_t len;
         void *security_descriptor;
         int inherit_handle;
-    } WinSecurityAttr;
+    } AvenWinSecurityAttr;
 
-    #define WIN_STARTF_USESTDHANDLES 0x00000100
+    #define AVEN_WIN_STARTF_USESTDHANDLES 0x00000100
 
     typedef struct {
         uint32_t cb;
-        char *lpReserved;
-        char *lpDesktop;
-        char *lpTitle;
-        uint32_t dwX;
-        uint32_t dwY;
-        uint32_t dwXSize;
-        uint32_t dwYSize;
-        uint32_t dwXCountChars;
-        uint32_t dwYCountChars;
-        uint32_t dwFillAttribute;
+        char *reserved;
+        char *desktop;
+        char *title;
+        uint32_t x;
+        uint32_t y;
+        uint32_t x_size;
+        uint32_t y_size;
+        uint32_t x_count_chars;
+        uint32_t y_count_chars;
+        uint32_t fill_attribute;
         uint32_t flags;
-        uint16_t wShowWindow;
-        uint16_t cbReserved2;
-        unsigned char *lpReserved2;
+        uint16_t show_window;
+        uint16_t breserved2;
+        unsigned char *preserved2;
         void *stdinput;
         void *stdoutput;
         void *stderror;
-    } WinStartupInfo;
+    } AvenWinStartupInfo;
 
     typedef struct {
         void *process;
         void *thread;
         uint32_t process_id;
         uint32_t thread_id;
-    } WinProcessInfo;
+    } AvenWinProcessInfo;
 
     __declspec(dllimport) int CreateProcessA(
         const char *application_name,
         char *command_line,
-        WinSecurityAttr *process_attr,
-        WinSecurityAttr *thread_attr,
+        AvenWinSecurityAttr *process_attr,
+        AvenWinSecurityAttr *thread_attr,
         int inherit_handles,
         uint32_t creation_flags,
         void *environment,
         const char *current_directory,
-        WinStartupInfo *startup_info,
-        WinProcessInfo *process_info
+        AvenWinStartupInfo *startup_info,
+        AvenWinProcessInfo *process_info
     );
 
     #ifndef AVEN_WIN_INFINITE
@@ -104,9 +104,9 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         uint32_t timeout_ms
     );
 
-    #define WIN_STD_INPUT_HANLDE ((uint32_t)-10)
-    #define WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
-    #define WIN_STD_ERROR_HANLDE ((uint32_t)-12)
+    #define AVEN_WIN_STD_INPUT_HANLDE ((uint32_t)-10)
+    #define AVEN_WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
+    #define AVEN_WIN_STD_ERROR_HANLDE ((uint32_t)-12)
 
     __declspec(dllimport) void *GetStdHandle(uint32_t std_handle);
     __declspec(dllimport) int CloseHandle(void *handle);
@@ -136,14 +136,14 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
 
     printf("%s\n", cmd_str.ptr);
 #ifdef _WIN32
-    WinStartupInfo startup_info = {
-        .cb = sizeof(WinStartupInfo),
-        .stdinput = GetStdHandle(WIN_STD_INPUT_HANLDE),
-        .stdoutput = GetStdHandle(WIN_STD_OUTPUT_HANLDE),
-        .stderror = GetStdHandle(WIN_STD_ERROR_HANLDE),
-        .flags = WIN_STARTF_USESTDHANDLES,
+    AvenWinStartupInfo startup_info = {
+        .cb = sizeof(AvenWinStartupInfo),
+        .stdinput = GetStdHandle(AVEN_WIN_STD_INPUT_HANLDE),
+        .stdoutput = GetStdHandle(AVEN_WIN_STD_OUTPUT_HANLDE),
+        .stderror = GetStdHandle(AVEN_WIN_STD_ERROR_HANLDE),
+        .flags = AVEN_WIN_STARTF_USESTDHANDLES,
     };
-    WinProcessInfo process_info = { 0 };
+    AvenWinProcessInfo process_info = { 0 };
 
     int success = CreateProcessA(
         NULL,

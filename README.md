@@ -65,8 +65,8 @@ that satisfies the following requirements:
  - there must by a standard easy way for a parent project to build and use
    artifacts from a dependency project.
 
-The following toochains are fully supported, e.g. configuration
-defaults will work out-of-the-box when one is used to compile the `build.c`. 
+The following toochains are fully supported, e.g. the default configuration
+should work out-of-the-box when one is used to compile the `build.c`. 
 
  - GNU (Linux + Windows w/[MinGW][3]): -cc `gcc` -ar `ar`
  - clang (Linux + Windows w/MSVC or MinGW): -cc `clang` -ar `llvm-ar`
@@ -88,14 +88,14 @@ very accommodating.
 ### Cross-compilation
 
 Since the build system is simple and flexible, cross compilation is achievable
-regardless of your toolchain. Below we build the build system for our native
-`x86_64` Linux machine with TinyCC, but we create build artifacts for
-an `x86_64` Windows target using MinGW.
+regardless of the host or toolchain. Below we build the build system on a
+host `x86_64` Linux machine with TinyCC, then create build artifacts for
+an `x86_64` Windows target using MinGW-w64.
 
 ```
 tcc -D__BIGGEST_ALIGNMENT__=16 -o build build.c
-./build -cc "x86_64-w64-mingww32-gcc" -ar "x86_64-w64-mingw32-ar" -exext ".exe"
--soext ".dll"
+./build -cc "x86_64-w64-mingww32-gcc" -ar "x86_64-w64-mingw32-ar" \
+    -ccflags "-O2 -Werror -Wall -Wextra" -exext ".exe" -soext ".dll"
 ```
 
 ## Building the library
