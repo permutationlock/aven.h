@@ -40,6 +40,8 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
 
 #ifdef AVEN_IMPLEMENTATION
 
+#include <stdio.h>
+
 #ifdef _WIN32
     typedef struct {
         uint32_t len;
@@ -107,7 +109,7 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
     #define AVEN_WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
     #define AVEN_WIN_STD_ERROR_HANLDE ((uint32_t)-12)
 
-    AVEN_WIN32_FN(void) *GetStdHandle(uint32_t std_handle);
+    AVEN_WIN32_FN(void *) GetStdHandle(uint32_t std_handle);
     AVEN_WIN32_FN(int) CloseHandle(void *handle);
     AVEN_WIN32_FN(int) GetExitCodeProcess(
         void *handle,
@@ -119,7 +121,6 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
     #endif
     #include <errno.h>
     #include <signal.h>
-    #include <stdio.h>
     #include <stdlib.h>
 
     #include <sys/wait.h>

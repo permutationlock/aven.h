@@ -18,8 +18,8 @@ AVEN_FN int aven_dl_close(void *handle);
         const char *copy_fname,
         int fail_exists
     );
-    AVEN_WIN32_FN(void) *LoadLibraryA(const char *fname);
-    AVEN_WIN32_FN(void) *GetProcAddress(
+    AVEN_WIN32_FN(void *)LoadLibraryA(const char *fname);
+    AVEN_WIN32_FN(void *) GetProcAddress(
         void *handle,
         const char *symbol
     );
