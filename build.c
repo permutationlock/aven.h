@@ -2,9 +2,6 @@
     #define _POSIX_C_SOURCE 200112L
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "config.h"
 
 #define AVEN_IMPLEMENTATION
@@ -16,6 +13,9 @@
 #include "include/aven/str.h"
 
 #include "build.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #define ARENA_SIZE (4096 * 2000)
 

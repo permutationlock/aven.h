@@ -44,18 +44,18 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
         #define AVEN_WIN_WAIT_TIMEOUT 0x00000102
     #endif
 
-    __declspec(dllimport) AvenWatchHandle FindFirstChangeNotificationA(
+    AVEN_WIN32_FN(AvenWatchHandle) FindFirstChangeNotificationA(
         const char *path_name,
         int watch_subtree,
         uint32_t notify_filter
     );
-    __declspec(dllimport) int FindNextChangeNotification(
+    AVEN_WIN32_FN(int) FindNextChangeNotification(
         AvenWatchHandle handle
     );
-    __declspec(dllimport) int FindCloseChangeNotification(
+    AVEN_WIN32_FN(int) FindCloseChangeNotification(
         AvenWatchHandle handle
     );
-    __declspec(dllimport) uint32_t WaitForMultipleObjects(
+    AVEN_WIN32_FN(uint32_t) WaitForMultipleObjects(
         uint32_t nhandles,
         AvenWatchHandle handle,
         int wait_all,

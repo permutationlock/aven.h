@@ -43,7 +43,7 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena);
 #include <stdarg.h>
 
 #if defined(_WIN32)
-    __declspec(dllimport) uint32_t GetModuleFileNameA(
+    AVEN_WIN32_FN(uint32_t) GetModuleFileNameA(
         void *mod,
         char *buffer,
         uint32_t buffer_len

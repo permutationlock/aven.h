@@ -88,4 +88,9 @@ typedef Slice(unsigned char) ByteSlice;
     #define AVEN_FN
 #endif
 
+#ifdef _WIN32
+    #define AVEN_WINCRT_FN(t) __declspec(dllimport) t
+    #define AVEN_WIN32_FN(t) __declspec(dllimport) t __stdcall
+#endif
+
 #endif // AVEN_H

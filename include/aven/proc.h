@@ -7,11 +7,6 @@
 
 #ifdef _WIN32
     typedef void *AvenProcId;
-
-    __declspec(dllimport) int TerminateProcess(
-        AvenProcId pid,
-        unsigned int error_code
-    );
 #else
     typedef int AvenProcId;
 #endif
@@ -82,7 +77,7 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         uint32_t thread_id;
     } AvenWinProcessInfo;
 
-    __declspec(dllimport) int CreateProcessA(
+    AVEN_WIN32_FN(int) CreateProcessA(
         const char *application_name,
         char *command_line,
         AvenWinSecurityAttr *process_attr,
@@ -94,12 +89,16 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         AvenWinStartupInfo *startup_info,
         AvenWinProcessInfo *process_info
     );
+    AVEN_WIN32_FN(int) TerminateProcess(
+        AvenProcId pid,
+        unsigned int error_code
+    );
 
     #ifndef AVEN_WIN_INFINITE
         #define AVEN_WIN_INFINITE 0xffffffff
     #endif
 
-    __declspec(dllimport) uint32_t WaitForSingleObject(
+    AVEN_WIN32_FN(uint32_t) WaitForSingleObject(
         void *handle,
         uint32_t timeout_ms
     );
@@ -108,9 +107,9 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
     #define AVEN_WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
     #define AVEN_WIN_STD_ERROR_HANLDE ((uint32_t)-12)
 
-    __declspec(dllimport) void *GetStdHandle(uint32_t std_handle);
-    __declspec(dllimport) int CloseHandle(void *handle);
-    __declspec(dllimport) int GetExitCodeProcess(
+    AVEN_WIN32_FN(void) *GetStdHandle(uint32_t std_handle);
+    AVEN_WIN32_FN(int) CloseHandle(void *handle);
+    AVEN_WIN32_FN(int) GetExitCodeProcess(
         void *handle,
         uint32_t *exit_code
     );
@@ -118,7 +117,10 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
     #ifndef _POSIX_C_SOURCE
         #error "kill requires _POSIX_C_SOURCE"
     #endif
+    #include <errno.h>
     #include <signal.h>
+    #include <stdio.h>
+    #include <stdlib.h>
 
     #include <sys/wait.h>
     #include <unistd.h>
@@ -185,7 +187,7 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
         int error = execvp(slice_get(cmd, 0).ptr, args);
         if (error != 0) {
             fprintf(stderr, "exec failed: %s\n", cmd_str.ptr);
-            exit(1);
+            exit(errno);
         }
     }
 
@@ -246,15 +248,17 @@ AVEN_FN int aven_proc_kill(AvenProcId pid) {
     return 0;
 #else
     int error = kill(pid, SIGTERM);
-    switch (error) {
-        case 0:
-            return 0;
-        case EPERM:
-        case ESRCH:
-            return AVEN_PROC_KILL_ERROR_KILL;
-        default:
-            return AVEN_PROC_KILL_ERROR_OTHER;
+    if (error < 0) {
+        switch (errno) {
+            case EPERM:
+            case ESRCH:
+                return AVEN_PROC_KILL_ERROR_KILL;
+            default:
+                return AVEN_PROC_KILL_ERROR_OTHER;
+        }
     }
+
+    return 0;
 #endif
 }
 
