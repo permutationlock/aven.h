@@ -3,13 +3,19 @@
 
 #include "../aven.h"
 
-#include <time.h>
+#ifdef _WIN32
+    typedef struct {
+        int64_t sec;
+        long nsec;
+    } AvenTimeSpec;
+#else
+    #include <time.h>
+    typedef struct timespec AvenTimeInst;
+#endif
 
 #define AVEN_TIME_NSEC_IN_SEC (1000L * 1000L * 1000L)
 #define AVEN_TIME_USEC_IN_SEC (1000L * 1000L)
 #define AVEN_TIME_MSEC_IN_SEC (1000L)
-
-typedef struct timespec AvenTimeInst;
 
 AVEN_FN AvenTimeInst aven_time_now(void);
 AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start);
@@ -46,7 +52,6 @@ AVEN_FN int64_t aven_time_since(AvenTimeInst end, AvenTimeInst start);
     #if !defined(_POSIX_C_SOURCE) or _POSIX_C_SOURCE < 199309L
         #error "clock_gettime requires _POSIX_C_SOURCE >= 199309L"
     #endif
-    #include <unistd.h>
     
     AVEN_FN AvenTimeInst aven_time_now(void) {
         AvenTimeInst now;

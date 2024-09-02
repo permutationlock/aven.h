@@ -58,7 +58,8 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #include <errno.h>
 
 #ifdef _WIN32
-    #ifdef __clang__
+    #if defined(_MSC_VER) and defined(__clang__)
+        #pragma clang diagnostic push
         #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     #endif
     int open(const char *filename, int oflag, ...);
@@ -269,6 +270,10 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath) {
     return 0;
 #endif
 }
+
+#if defined(_WIN32) and defined(_MSC_VER) and defined(__clang__)
+    #pragma clang diagnostic pop
+#endif
 
 #endif // AVEN_IMPLEMENTATION
 

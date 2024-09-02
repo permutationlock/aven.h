@@ -40,7 +40,9 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
 
 #ifdef AVEN_IMPLEMENTATION
 
+#ifndef AVEN_SUPPRESS_LOGS
 #include <stdio.h>
+#endif
 
 #ifdef _WIN32
     typedef struct {
@@ -136,8 +138,9 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
         ' ',
         &arena
     );
-
+#ifndef AVEN_SUPPRESS_LOGS
     printf("%s\n", cmd_str.ptr);
+#endif
 #ifdef _WIN32
     AvenWinStartupInfo startup_info = {
         .cb = sizeof(AvenWinStartupInfo),
@@ -164,7 +167,7 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
         return (AvenProcIdResult){ .error = AVEN_PROC_CMD_ERROR_FORK };
     }
 
-    (void)CloseHandle(process_info.thread);
+    CloseHandle(process_info.thread);
     
     return (AvenProcIdResult){ .payload = process_info.process };
 #else
@@ -187,7 +190,9 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
 
         int error = execvp(slice_get(cmd, 0).ptr, args);
         if (error != 0) {
-            fprintf(stderr, "exec failed: %s\n", cmd_str.ptr);
+#ifndef AVEN_SUPPRESS_LOGS
+            fprintf(stderr, "execvp failed: %s\n", cmd_str.ptr);
+#endif
             exit(errno);
         }
     }
@@ -242,10 +247,10 @@ AVEN_FN int aven_proc_kill(AvenProcId pid) {
 #ifdef _WIN32
     int success = TerminateProcess(pid, 1);
     if (success == 0) {
-        (void)CloseHandle(pid);
+        CloseHandle(pid);
         return AVEN_PROC_KILL_ERROR_KILL;
     }
-    (void)CloseHandle(pid);
+    CloseHandle(pid);
     return 0;
 #else
     int error = kill(pid, SIGTERM);

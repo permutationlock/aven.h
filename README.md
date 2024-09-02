@@ -14,8 +14,9 @@ The library has expanded to include:
  - a C build system: `aven/build.h`, `aven/build/common.h`
  - portable file system interaction: `aven/fs.h`
  - a tiny SIMD linear algebra library: `aven/glm.h`
+ - portable file path string manipulation: `aven/path.h`
  - portable process execution and management: `aven/proc.h`
- - slice based strings: `aven/string.h`
+ - slice based strings: `aven/str.h`
  - a bare-bones test framework: `aven/test.h`
  - portable high precision timing: `aven/time.h`
  - portable directory watching (Windows + Linux only): `aven/watch.h`
@@ -42,10 +43,10 @@ a small number of other C standard library headers will be included.
 For Windows targets, bespoke definitions are used in lieu of
 any Windows, MSVC, or MinGW platform specific headers[^3].
 For Linux targets, some files require POSIX features to be enabled
-( `_POSIX_C_SOURCE >= 200112L`), and a few POSIX specific headers will be included,
-e.g. `fcntl.h`, `sys/stat.h`, `sys/wait.h`, and `unistd.h`. Linux
+( `_POSIX_C_SOURCE >= 200112L`), and a few POSIX specific headers will be included. Linux
 specific features are used where necessary, e.g. `sys/inotify.h` for directory
-watching and `/proc/self/exe` for exe path discovery.
+watching and `/proc/self/exe` for exe path discovery; such functions simply
+return errors on non-Linux POSIX targets.
 
 ## Aven C build system
 
@@ -164,8 +165,9 @@ cl.exe /std:c11 /Fe:build.exe build.c
 
 [^3]: I like to know what is in my C namespace. I am a [musl][6]
       man and can easliy read through the  libc and Linux headers.
-      For targets like Windows with less "accessible" headers, but
-      great documentation, I decided to take more control.
+      Windows has "less accessible" header, but
+      good documentation and little variation in architecture,
+      so I just wrote the definitions myself.
 
 [1]: https://ziglang.org/
 [2]: https://nullprogram.com/blog/2023/09/27/
