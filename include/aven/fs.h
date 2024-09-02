@@ -58,11 +58,14 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #include <errno.h>
 
 #ifdef _WIN32
-    AVEN_WINCRT_FN(int) _open(const char *filename, int oflag, ...);
-    AVEN_WINCRT_FN(int) _close(int fd);
-    AVEN_WINCRT_FN(int) _unlink(const char *path);
-    AVEN_WINCRT_FN(int) _mkdir(const char *path);
-    AVEN_WINCRT_FN(int) _rmdir(const char *path);
+    #ifdef __clang__
+        #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    #endif
+    int open(const char *filename, int oflag, ...);
+    int close(int fd);
+    int unlink(const char *path);
+    int mkdir(const char *path);
+    int rmdir(const char *path);
 
     AVEN_WIN32_FN(int) CopyFileA(
         const char *fname,
@@ -85,11 +88,7 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #endif
 
 AVEN_FN int aven_fs_rm(AvenStr path) {
-#ifdef _WIN32
-    int error = _unlink(path.ptr);
-#else
     int error = unlink(path.ptr);
-#endif
     if (error != 0) {
         switch (errno) {
             case EACCES:
@@ -112,11 +111,7 @@ AVEN_FN int aven_fs_rm(AvenStr path) {
 }
 
 AVEN_FN int aven_fs_rmdir(AvenStr path) {
-#ifdef _WIN32
-    int error = _rmdir(path.ptr);
-#else
     int error = rmdir(path.ptr);
-#endif
     if (error != 0) {
         switch (errno) {
             case ENOTEMPTY:
@@ -142,7 +137,7 @@ AVEN_FN int aven_fs_rmdir(AvenStr path) {
 
 AVEN_FN int aven_fs_mkdir(AvenStr path) {
 #ifdef _WIN32
-    int error = _mkdir(path.ptr);
+    int error = mkdir(path.ptr);
 #else
     int error = mkdir(
         path.ptr,
@@ -172,7 +167,7 @@ AVEN_FN int aven_fs_mkdir(AvenStr path) {
 
 AVEN_FN int aven_fs_trunc(AvenStr path) {
 #ifdef _WIN32
-    int fd = _open(
+    int fd = open(
         path.ptr,
         O_CREAT | O_TRUNC | O_WRONLY,
         S_IREAD | S_IWRITE
@@ -203,11 +198,7 @@ AVEN_FN int aven_fs_trunc(AvenStr path) {
         }
     }
 
-#ifdef _WIN32
-    _close(fd);
-#else
     close(fd);
-#endif
 
     return 0;
 }
