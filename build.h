@@ -31,4 +31,18 @@ static inline AvenBuildStep libaven_build_step(
     );
 }
 
+static inline AvenBuildStep libaven_build_windres_manifest_step(
+    AvenBuildCommonOpts *opts,
+    AvenStr root_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    return aven_build_common_step_windres(
+        opts,
+        aven_path(arena, root_path.ptr, "src", "windows", "manifest.rc", NULL),
+        out_dir_step,
+        arena
+    );
+}
+
 #endif // LIBAVEN_BUILD_H

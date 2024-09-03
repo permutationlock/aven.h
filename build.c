@@ -21,8 +21,6 @@
 #define ARENA_SIZE (4096 * 2000)
 
 int main(int argc, char **argv) {
-    aven_fs_utf8_mode();
-
     void *mem = malloc(ARENA_SIZE);
     if (mem == NULL) {
         fprintf(stderr, "malloc failure\n");
@@ -66,14 +64,31 @@ int main(int argc, char **argv) {
     // Build and run tests
 
     AvenStr aven_include = libaven_build_include_path(aven_str("."), &arena);
-
     AvenBuildStep test_dir_step = aven_build_step_mkdir(aven_str("build_test"));
+
+#ifdef _WIN32
+    // If on windows we need a manifest to enable utf8 mode
+    AvenBuildStep manifest_step = libaven_build_windres_manifest_step(
+        &opts,
+        aven_str("."),
+        &test_dir_step,
+        &arena
+    );
+    AvenBuildStep *test_obj_step_data[] = { &manifest_step };
+    AvenBuildStepPtrSlice test_obj_steps = {
+        .ptr = test_obj_step_data,
+        .len = countof(test_obj_step_data),
+    };
+#else
+    AvenBuildStepPtrSlice test_obj_steps = { 0 };
+#endif
+
     AvenBuildStep test_step = aven_build_common_step_cc_ld_run_exe_ex(
         &opts,
         (AvenStrSlice){ .ptr = &aven_include, .len = 1 },
         (AvenStrSlice){ 0 },
         (AvenStrSlice){ 0 },
-        (AvenBuildStepPtrSlice){ 0 },
+        test_obj_steps,
         aven_str("test.c"),
         &test_dir_step,
         (AvenStrSlice){ 0 },

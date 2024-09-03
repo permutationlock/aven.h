@@ -35,13 +35,20 @@ typedef struct {
 } AvenBuildCommonAROpts;
 
 typedef struct {
+    Optional(AvenStr) compiler;
+    AvenStr outflag;
+} AvenBuildCommonWindresOpts;
+
+typedef struct {
     AvenBuildCommonCOpts cc;
     AvenBuildCommonLDOpts ld;
     AvenBuildCommonAROpts ar;
+    AvenBuildCommonWindresOpts windres;
     AvenStrSlice obexts;
     AvenStrSlice exexts;
     AvenStrSlice soexts;
     AvenStrSlice arexts;
+    AvenStrSlice wrexts;
     bool clean;
     bool test;
 } AvenBuildCommonOpts;
@@ -132,9 +139,9 @@ AvenArg aven_build_common_args_data[] = {
     #if defined(__clang__)
             .data = { .arg_str = "llvm-ar.exe" },
     #elif defined(_MSC_VER)
-        .data = { .arg_str = "lib.exe" },
+            .data = { .arg_str = "lib.exe" },
     #elif defined(__GNUC__)
-        .data = { .arg_str = "ar.exe" },
+            .data = { .arg_str = "ar.exe" },
     #elif defined(__TINYC__)
             .data = { .arg_str = "tcc.exe" },
     #else
@@ -308,6 +315,25 @@ AvenArg aven_build_common_args_data[] = {
         },
     },
     {
+        .name = "-wrext",
+        .description = "File extension for windows resource files",
+        .type = AVEN_ARG_TYPE_STRING,
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_AREXT)
+            .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_AREXT },
+#elif defined(_WIN32)
+    #if defined(_MSC_VER)
+            .data = { .arg_str = ".res" },
+    #else
+            .data = { .arg_str = ".o" },
+    #endif
+#else
+            .data = { .arg_str = ".o" },
+#endif
+        },
+    },
+    {
         .name = "-ccincflag",
         .description = "C compiler flag to add include path",
         .type = AVEN_ARG_TYPE_STRING,
@@ -431,6 +457,21 @@ AvenArg aven_build_common_args_data[] = {
 #endif
     },
     {
+        .name = "-windresoutflag",
+        .description = "Windows res compiler flag to specify output file",
+        .type = AVEN_ARG_TYPE_STRING,
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_WINDRESOUTFLAG)
+            .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_WINDRESOUTFLAG },
+#elif defined(_WIN32) and defined(_MSC_VER) and !defined(__clang__)
+            .data = { .arg_str = "/fo" },
+#else
+            .data = { .arg_str = "-o" },
+#endif
+        },
+    },
+    {
         .name = "-ccflagsep",
         .description = "C compiler spaces between flag and argument",
         .type = AVEN_ARG_TYPE_INT,
@@ -534,6 +575,16 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
         arena
     );
 
+    if (aven_arg_has_arg(arg_slice, "-windres")) {
+        opts.windres.compiler.valid = true;
+        opts.windres.compiler.value = aven_str_cstr(
+            aven_arg_get_str(arg_slice, "-windres")
+        );
+    }
+    opts.windres.outflag = aven_str_cstr(
+        aven_arg_get_str(arg_slice, "-windresoutflag")
+    );
+
     opts.obexts = aven_str_split(
         aven_str_cstr(aven_arg_get_str(arg_slice, "-obext")),
         ' ',
@@ -551,6 +602,11 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
     );
     opts.arexts = aven_str_split(
         aven_str_cstr(aven_arg_get_str(arg_slice, "-arext")),
+        ' ',
+        arena
+    );
+    opts.wrexts = aven_str_split(
+        aven_str_cstr(aven_arg_get_str(arg_slice, "-wrext")),
         ' ',
         arena
     );
@@ -1022,6 +1078,73 @@ static inline AvenBuildStep aven_build_common_step_ar(
     }
 
     return ar_step;
+}
+
+static inline AvenBuildStep aven_build_common_step_windres(
+    AvenBuildCommonOpts *opts,
+    AvenStr src_path,
+    AvenBuildStep *out_dir_step,
+    AvenArena *arena
+) {
+    assert(out_dir_step->out_path.valid);
+    AvenStr out_dir_path = out_dir_step->out_path.value;
+
+    AvenStr src_fname = aven_path_fname(src_path, arena);
+    AvenStrSlice ext_split = aven_str_split(
+        src_fname,
+        '.',
+        arena
+    );
+    AvenStr ext_free_fname = slice_get(ext_split, 0);
+
+    AvenStr out_fname = ext_free_fname;
+    if (opts->wrexts.len > 0) {
+        out_fname = aven_str_concat(
+            out_fname,
+            slice_get(opts->wrexts, 0),
+            arena
+        );
+    }
+    AvenStr target_path = aven_path(
+        arena,
+        out_dir_path.ptr,
+        out_fname.ptr,
+        NULL
+    );
+
+    AvenStrSlice cmd_slice = { .len = 4 };
+    cmd_slice.ptr = aven_arena_create_array(AvenStr, arena, cmd_slice.len);
+
+    size_t i = 0;
+    assert(opts->windres.compiler.valid);
+    slice_get(cmd_slice, i) = opts->windres.compiler.value;
+    i += 1;
+    slice_get(cmd_slice, i) = opts->windres.outflag;
+    i += 1;
+    slice_get(cmd_slice, i) = target_path;
+    i += 1;
+    slice_get(cmd_slice, i) = src_path;
+    i += 1;
+
+    AvenBuildOptionalPath out_path = { .value = target_path, .valid = true };
+    AvenBuildStep windres_step = aven_build_step_cmd(out_path, cmd_slice);
+    aven_build_step_add_dep(&windres_step, out_dir_step, arena);
+
+    if (opts->wrexts.len > 1) {
+        AvenStrSlice extra_exts = {
+            .ptr = opts->wrexts.ptr + 1,
+            .len = opts->wrexts.len - 1,
+        };
+        aven_build_common_step_add_path_deps(
+            &windres_step,
+            out_dir_step,
+            ext_free_fname,
+            extra_exts,
+            arena
+        );
+    }
+
+    return windres_step;
 }
 
 static inline AvenBuildStep aven_build_common_step_cc_ld(
