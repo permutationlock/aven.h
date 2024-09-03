@@ -159,6 +159,7 @@ AVEN_FN int aven_arg_parse(
                         return AVEN_ARG_ERROR_VALUE;
                     }
                     arg->value.data.arg_int = atoi(argv[i + 1]);
+                    arg->value.type = AVEN_ARG_TYPE_INT;
                     i += 1;
                     break;
                 case AVEN_ARG_TYPE_STRING:
@@ -168,6 +169,7 @@ AVEN_FN int aven_arg_parse(
                         return AVEN_ARG_ERROR_VALUE;
                     }
                     arg->value.data.arg_str = argv[i + 1];
+                    arg->value.type = AVEN_ARG_TYPE_STRING;
                     i += 1;
                     break;
                 default:

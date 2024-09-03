@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     AvenBuildStep test_dir_step = aven_build_step_mkdir(aven_str("build_test"));
 
 #ifdef _WIN32
-    // If on windows we need a manifest to enable utf8 mode
+    // If on windows build a manifest resource file to enable utf8 mode
     AvenBuildStep manifest_step = libaven_build_windres_manifest_step(
         &opts,
         aven_str("."),
