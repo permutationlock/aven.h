@@ -42,13 +42,7 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena);
 
 #include <stdarg.h>
 
-#if defined(_WIN32)
-    AVEN_WIN32_FN(uint32_t) GetModuleFileNameA(
-        void *mod,
-        char *buffer,
-        uint32_t buffer_len
-    );
-#elif defined(__linux__)
+#ifdef __linux__
     #if !defined(_POSIX_C_SOURCE) or _POSIX_C_SOURCE < 200112L
         #error "readlink requires _POSIX_C_SOURCE >= 200112L"
     #endif
@@ -261,6 +255,12 @@ AVEN_FN AvenStr aven_path_rel_diff(
 
 AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena) {
 #ifdef _WIN32
+    AVEN_WIN32_FN(uint32_t) GetModuleFileNameA(
+        void *mod,
+        char *buffer,
+        uint32_t buffer_len
+    );
+
     char buffer[AVEN_PATH_MAX_LEN];
     uint32_t len = GetModuleFileNameA(NULL, buffer, countof(buffer));
     if (len <= 0 or len == countof(buffer)) {

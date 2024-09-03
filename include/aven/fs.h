@@ -53,6 +53,8 @@ typedef enum {
 
 AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 
+AVEN_FN void aven_fs_utf8_mode(void);
+
 #ifdef AVEN_IMPLEMENTATION
 
 #include <errno.h>
@@ -62,26 +64,10 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
         #pragma clang diagnostic push
         #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     #endif
-    int open(const char *filename, int oflag, ...);
-    int close(int fd);
-    int unlink(const char *path);
-    int mkdir(const char *path);
-    int rmdir(const char *path);
-
-    AVEN_WIN32_FN(int) CopyFileA(
-        const char *fname,
-        const char *copy_fname,
-        int fail_exists
-    );
-    AVEN_WIN32_FN(uint32_t) GetLastError(void);
-
-    #define O_CREAT 0x0100
-    #define O_TRUNC 0x0200
-    #define O_RDONLY 0x0000
-    #define O_WRONLY 0x0001
-
-    #define S_IREAD 0x0100
-    #define S_IWRITE 0x0080
+    #include <direct.h>
+    #include <fcntl.h>
+    #include <io.h>
+    #include <sys/stat.h>
 #else
     #include <fcntl.h>
     #include <sys/stat.h>
@@ -89,6 +75,21 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath);
 #endif
 
 AVEN_FN int aven_fs_rm(AvenStr path) {
+#ifdef _WIN32
+    int error = _unlink(path.ptr);
+    if (error != 0) {
+        switch (errno) {
+            case EACCES:
+                return AVEN_FS_RM_ERROR_ACCESS;
+            case ENOENT:
+                return AVEN_FS_RM_ERROR_BADPATH;
+            default:
+                return AVEN_FS_RM_ERROR_OTHER;
+        }
+    }
+
+    return 0;
+#else
     int error = unlink(path.ptr);
     if (error != 0) {
         switch (errno) {
@@ -96,22 +97,38 @@ AVEN_FN int aven_fs_rm(AvenStr path) {
                 return AVEN_FS_RM_ERROR_ACCESS;
             case ENOENT:
                 return AVEN_FS_RM_ERROR_BADPATH;
-#ifndef _WIN32
             case EBUSY:
                 return AVEN_FS_RM_ERROR_ACCESS;
             case ENOTDIR:
             case EISDIR:
                 return AVEN_FS_RM_ERROR_BADPATH;
-#endif
             default:
                 return AVEN_FS_RM_ERROR_OTHER;
         }
     }
 
     return 0;
+#endif
 }
 
 AVEN_FN int aven_fs_rmdir(AvenStr path) {
+#ifdef _WIN32
+    int error = _rmdir(path.ptr);
+    if (error != 0) {
+        switch (errno) {
+            case ENOTEMPTY:
+                return AVEN_FS_RMDIR_ERROR_NOTEMPTY;
+            case EACCES:
+                return AVEN_FS_RMDIR_ERROR_ACCESS;
+            case ENOENT:
+                return AVEN_FS_RMDIR_ERROR_BADPATH;
+            default:
+                return AVEN_FS_RMDIR_ERROR_OTHER;
+        }
+    }
+
+    return 0;
+#else
     int error = rmdir(path.ptr);
     if (error != 0) {
         switch (errno) {
@@ -134,17 +151,12 @@ AVEN_FN int aven_fs_rmdir(AvenStr path) {
     }
 
     return 0;
+#endif
 }
 
 AVEN_FN int aven_fs_mkdir(AvenStr path) {
 #ifdef _WIN32
-    int error = mkdir(path.ptr);
-#else
-    int error = mkdir(
-        path.ptr,
-        S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
-    );
-#endif
+    int error = _mkdir(path.ptr);
     if (error != 0) {
         switch (errno) {
             case EACCES:
@@ -153,26 +165,58 @@ AVEN_FN int aven_fs_mkdir(AvenStr path) {
                 return AVEN_FS_MKDIR_ERROR_BADPATH;
             case EEXIST:
                 return AVEN_FS_MKDIR_ERROR_EXIST;
-#ifndef _WIN32
-            case ENAMETOOLONG:
-            case ENOTDIR:
-                return AVEN_FS_MKDIR_ERROR_BADPATH;
-#endif
             default:
                 return AVEN_FS_MKDIR_ERROR_OTHER;
         }
     }
 
     return 0;
+#else
+    int error = mkdir(
+        path.ptr,
+        S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+    );
+    if (error != 0) {
+        switch (errno) {
+            case EACCES:
+                return AVEN_FS_MKDIR_ERROR_ACCESS;
+            case ENOENT:
+                return AVEN_FS_MKDIR_ERROR_BADPATH;
+            case EEXIST:
+                return AVEN_FS_MKDIR_ERROR_EXIST;
+            case ENAMETOOLONG:
+            case ENOTDIR:
+                return AVEN_FS_MKDIR_ERROR_BADPATH;
+            default:
+                return AVEN_FS_MKDIR_ERROR_OTHER;
+        }
+    }
+
+    return 0;
+#endif
 }
 
 AVEN_FN int aven_fs_trunc(AvenStr path) {
 #ifdef _WIN32
-    int fd = open(
+    int fd = _open(
         path.ptr,
-        O_CREAT | O_TRUNC | O_WRONLY,
-        S_IREAD | S_IWRITE
+        _O_CREAT | _O_TRUNC | _O_WRONLY,
+        _S_IREAD | _S_IWRITE
     );
+    if (fd < 0) {
+        switch (errno) {
+            case EACCES:
+                return AVEN_FS_TRUNC_ERROR_ACCESS;
+            case ENOENT:
+                return AVEN_FS_TRUNC_ERROR_BADPATH;
+            default:
+                return AVEN_FS_TRUNC_ERROR_OTHER;
+        }
+    }
+
+    _close(fd);
+
+    return 0;
 #else
     int fd = -1;
     do {
@@ -182,18 +226,15 @@ AVEN_FN int aven_fs_trunc(AvenStr path) {
             S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
         );
     } while (fd < 0 and errno == EINTR);
-#endif
     if (fd < 0) {
         switch (errno) {
             case EACCES:
                 return AVEN_FS_TRUNC_ERROR_ACCESS;
             case ENOENT:
                 return AVEN_FS_TRUNC_ERROR_BADPATH;
-#ifndef _WIN32
             case ENOTDIR:
             case EISDIR:
                 return AVEN_FS_TRUNC_ERROR_BADPATH;
-#endif
             default:
                 return AVEN_FS_TRUNC_ERROR_OTHER;
         }
@@ -202,16 +243,24 @@ AVEN_FN int aven_fs_trunc(AvenStr path) {
     close(fd);
 
     return 0;
+#endif
 }
 
 AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath) {
 #ifdef _WIN32
+    AVEN_WIN32_FN(int) CopyFileA(
+        const char *fname,
+        const char *copy_fname,
+        int fail_exists
+    );
+    AVEN_WIN32_FN(uint32_t) GetLastError(void);
+
     int success = CopyFileA(ipath.ptr, opath.ptr, false);
     if (success == 0) {
         switch (GetLastError()) {
-            case 2:
+            case 2: /* ERROR_FILE_NOT_FOUND */
                 return AVEN_FS_COPY_ERROR_IFOPEN;
-            case 5:
+            case 3: /* ERROR_ACCESS_DENIED */
                 return AVEN_FS_COPY_ERROR_OFOPEN;
             default:
                 return AVEN_FS_COPY_ERROR_OTHER;
@@ -268,6 +317,17 @@ AVEN_FN int aven_fs_copy(AvenStr ipath, AvenStr opath) {
     close(ofd);
 
     return 0;
+#endif
+}
+
+AVEN_FN void aven_fs_utf8_mode(void) {
+#ifdef _WIN32
+    AVEN_WIN32_FN(int) SetConsoleOutputCP(unsigned int code_page_id);
+
+    _setmode(0, _O_BINARY);
+    _setmode(1, _O_BINARY);
+    SetConsoleOutputCP(65001); /* CP_UTF8 */
+#else
 #endif
 }
 

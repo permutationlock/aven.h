@@ -164,10 +164,10 @@ cl.exe /std:c11 /Fe:build.exe build.c
     on both Linux and Windows, then you know my motivation here :(
 
 [^3]: I like to know what is in my C namespace. I am a [musl][6]
-      man and can easliy read through the  libc and Linux headers.
-      Windows has "less accessible" header, but
-      good documentation and little variation in architecture,
-      so I just wrote the definitions myself.
+      man and can easliy read through the simple libc and Linux headers.
+      Windows Win32 API on the other hand has massive "inaccessible" headers,
+      but good documentation and little variation accross architecture.
+      Thus is simply nicer to write the definitions myself.
 
 [1]: https://ziglang.org/
 [2]: https://nullprogram.com/blog/2023/09/27/

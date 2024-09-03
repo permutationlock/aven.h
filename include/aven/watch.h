@@ -37,32 +37,13 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
 #ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
-    #ifndef AVEN_WIN_INFINITE
-        #define AVEN_WIN_INFINITE 0xffffffff
-    #endif
-    #ifndef AVEN_WIN_WAIT_TIMEOUT
-        #define AVEN_WIN_WAIT_TIMEOUT 0x00000102
-    #endif
-
-    AVEN_WIN32_FN(AvenWatchHandle) FindFirstChangeNotificationA(
-        const char *path_name,
-        int watch_subtree,
-        uint32_t notify_filter
-    );
-    AVEN_WIN32_FN(int) FindNextChangeNotification(
-        AvenWatchHandle handle
-    );
-    AVEN_WIN32_FN(int) FindCloseChangeNotification(
-        AvenWatchHandle handle
-    );
-    AVEN_WIN32_FN(uint32_t) WaitForMultipleObjects(
-        uint32_t nhandles,
-        AvenWatchHandle handle,
-        int wait_all,
-        uint32_t timeout_ms
-    );
-
     AVEN_FN AvenWatchHandle aven_watch_init(AvenStr dirname) {
+        AVEN_WIN32_FN(AvenWatchHandle) FindFirstChangeNotificationA(
+            const char *path_name,
+            int watch_subtree,
+            uint32_t notify_filter
+        );
+
         return FindFirstChangeNotificationA(
             dirname.ptr,
             0,
@@ -74,10 +55,20 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
         AvenWatchHandleSlice handles,
         int timeout
     ) {
+        AVEN_WIN32_FN(uint32_t) WaitForMultipleObjects(
+            uint32_t nhandles,
+            AvenWatchHandle handle,
+            int wait_all,
+            uint32_t timeout_ms
+        );
+        AVEN_WIN32_FN(int) FindNextChangeNotification(
+            AvenWatchHandle handle
+        );
+
         assert(handles.len < AVEN_WATCH_MAX_HANDLES);
         uint32_t win_timeout = (uint32_t)timeout;
         if (timeout < 0) {
-            win_timeout = AVEN_WIN_INFINITE;
+            win_timeout = 0xffffffff; /* INFINITE */
         }
         uint32_t signaled = 0;
         do {
@@ -87,7 +78,7 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
                 false,
                 win_timeout
             );
-            if (result == AVEN_WIN_WAIT_TIMEOUT) {
+            if (result == 0x00000102 /* TIMEOUT */) {
                 return (AvenWatchResult){ .payload = signaled };
             } else if (result >= handles.len) {
                 return (AvenWatchResult){ .error = AVEN_WATCH_ERROR_POLL };
@@ -119,6 +110,10 @@ AVEN_FN void aven_watch_deinit(AvenWatchHandle handle);
     }
  
     AVEN_FN void aven_watch_deinit(AvenWatchHandle handle) {
+        AVEN_WIN32_FN(int) FindCloseChangeNotification(
+            AvenWatchHandle handle
+        );
+
         FindCloseChangeNotification(handle);
     }
 #elif defined(__linux__)

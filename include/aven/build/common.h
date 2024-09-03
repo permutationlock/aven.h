@@ -154,6 +154,41 @@ AvenArg aven_build_common_args_data[] = {
         },
     },
     {
+        .name = "-windres",
+        .description = "Windows resource compiler",
+        .type = AVEN_ARG_TYPE_STRING,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_WINDRES)
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_WINDRES },
+        },
+#elif defined(_WIN32)
+    #if defined(__clang__)
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = "llvm-windres.exe" },
+        },
+    #elif defined(_MSC_VER)
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = "rc.exe" },
+        },
+    #elif defined(__GNUC__)
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = "windres.exe" },
+        },
+    #else
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = "" },
+        },
+    #endif
+#else
+        .optional = true,
+#endif
+    },
+    {
         .name = "-ccflags",
         .description = "C compiler common flags",
         .type = AVEN_ARG_TYPE_STRING,

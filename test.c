@@ -2,6 +2,7 @@
 #define AVEN_IMPLEMENTATION
 
 #include <aven.h>
+#include <aven/fs.h>
 #include <aven/path.h>
 #include <aven/str.h>
 #include <aven/test.h>
@@ -16,6 +17,7 @@
 AvenArena test_arena;
 
 int main(void) {
+    aven_fs_utf8_mode();
     void *mem = malloc(ARENA_SIZE);
     test_arena = aven_arena_init(mem, ARENA_SIZE);
 

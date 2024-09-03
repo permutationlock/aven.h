@@ -44,14 +44,36 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
 #include <stdio.h>
 #endif
 
+#ifndef _WIN32
+    #ifndef _POSIX_C_SOURCE
+        #error "kill requires _POSIX_C_SOURCE"
+    #endif
+    #include <errno.h>
+    #include <signal.h>
+    #include <stdlib.h>
+
+    #include <sys/wait.h>
+    #include <unistd.h>
+#endif
+
+AVEN_FN AvenProcIdResult aven_proc_cmd(
+    AvenStrSlice cmd,
+    AvenArena arena
+) {
+    AvenStr cmd_str = aven_str_join(
+        cmd,
+        ' ',
+        &arena
+    );
+#ifndef AVEN_SUPPRESS_LOGS
+    printf("%s\n", cmd_str.ptr);
+#endif
 #ifdef _WIN32
     typedef struct {
         uint32_t len;
         void *security_descriptor;
         int inherit_handle;
     } AvenWinSecurityAttr;
-
-    #define AVEN_WIN_STARTF_USESTDHANDLES 0x00000100
 
     typedef struct {
         uint32_t cb;
@@ -81,6 +103,8 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         uint32_t thread_id;
     } AvenWinProcessInfo;
 
+    AVEN_WIN32_FN(void *) GetStdHandle(uint32_t std_handle);
+    AVEN_WIN32_FN(int) CloseHandle(void *handle);
     AVEN_WIN32_FN(int) CreateProcessA(
         const char *application_name,
         char *command_line,
@@ -93,61 +117,13 @@ AVEN_FN int aven_proc_kill(AvenProcId pid);
         AvenWinStartupInfo *startup_info,
         AvenWinProcessInfo *process_info
     );
-    AVEN_WIN32_FN(int) TerminateProcess(
-        AvenProcId pid,
-        unsigned int error_code
-    );
 
-    #ifndef AVEN_WIN_INFINITE
-        #define AVEN_WIN_INFINITE 0xffffffff
-    #endif
-
-    AVEN_WIN32_FN(uint32_t) WaitForSingleObject(
-        void *handle,
-        uint32_t timeout_ms
-    );
-
-    #define AVEN_WIN_STD_INPUT_HANLDE ((uint32_t)-10)
-    #define AVEN_WIN_STD_OUTPUT_HANLDE ((uint32_t)-11)
-    #define AVEN_WIN_STD_ERROR_HANLDE ((uint32_t)-12)
-
-    AVEN_WIN32_FN(void *) GetStdHandle(uint32_t std_handle);
-    AVEN_WIN32_FN(int) CloseHandle(void *handle);
-    AVEN_WIN32_FN(int) GetExitCodeProcess(
-        void *handle,
-        uint32_t *exit_code
-    );
-#else
-    #ifndef _POSIX_C_SOURCE
-        #error "kill requires _POSIX_C_SOURCE"
-    #endif
-    #include <errno.h>
-    #include <signal.h>
-    #include <stdlib.h>
-
-    #include <sys/wait.h>
-    #include <unistd.h>
-#endif
-
-AVEN_FN AvenProcIdResult aven_proc_cmd(
-    AvenStrSlice cmd,
-    AvenArena arena
-) {
-    AvenStr cmd_str = aven_str_join(
-        cmd,
-        ' ',
-        &arena
-    );
-#ifndef AVEN_SUPPRESS_LOGS
-    printf("%s\n", cmd_str.ptr);
-#endif
-#ifdef _WIN32
     AvenWinStartupInfo startup_info = {
         .cb = sizeof(AvenWinStartupInfo),
-        .stdinput = GetStdHandle(AVEN_WIN_STD_INPUT_HANLDE),
-        .stdoutput = GetStdHandle(AVEN_WIN_STD_OUTPUT_HANLDE),
-        .stderror = GetStdHandle(AVEN_WIN_STD_ERROR_HANLDE),
-        .flags = AVEN_WIN_STARTF_USESTDHANDLES,
+        .stdinput = GetStdHandle(((uint32_t)-10)),
+        .stdoutput = GetStdHandle(((uint32_t)-11)),
+        .stderror = GetStdHandle(((uint32_t)-12)),
+        .flags = 0x00000100, /* STARTF_USESTDHANDLES */
     };
     AvenWinProcessInfo process_info = { 0 };
 
@@ -203,7 +179,16 @@ AVEN_FN AvenProcIdResult aven_proc_cmd(
 
 AVEN_FN int aven_proc_wait(AvenProcId pid) {
 #ifdef _WIN32
-    uint32_t result = WaitForSingleObject(pid, AVEN_WIN_INFINITE);
+    AVEN_WIN32_FN(uint32_t) WaitForSingleObject(
+        void *handle,
+        uint32_t timeout_ms
+    );
+    AVEN_WIN32_FN(int) GetExitCodeProcess(
+        void *handle,
+        uint32_t *exit_code
+    );
+
+    uint32_t result = WaitForSingleObject(pid, 0xffffffff); /* INFINITE */
     if (result != 0) {
         return AVEN_PROC_WAIT_ERROR_WAIT;
     }
@@ -245,6 +230,12 @@ AVEN_FN int aven_proc_wait(AvenProcId pid) {
 
 AVEN_FN int aven_proc_kill(AvenProcId pid) {
 #ifdef _WIN32
+    AVEN_WIN32_FN(int) TerminateProcess(
+        AvenProcId pid,
+        unsigned int error_code
+    );
+    AVEN_WIN32_FN(int) CloseHandle(void *handle);
+
     int success = TerminateProcess(pid, 1);
     if (success == 0) {
         CloseHandle(pid);

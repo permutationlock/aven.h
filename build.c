@@ -10,6 +10,7 @@
 #include "include/aven/arena.h"
 #include "include/aven/build.h"
 #include "include/aven/build/common.h"
+#include "include/aven/fs.h"
 #include "include/aven/str.h"
 
 #include "build.h"
@@ -20,6 +21,8 @@
 #define ARENA_SIZE (4096 * 2000)
 
 int main(int argc, char **argv) {
+    aven_fs_utf8_mode();
+
     void *mem = malloc(ARENA_SIZE);
     if (mem == NULL) {
         fprintf(stderr, "malloc failure\n");

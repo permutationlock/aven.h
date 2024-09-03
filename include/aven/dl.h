@@ -13,21 +13,14 @@ AVEN_FN int aven_dl_close(void *handle);
 #ifdef AVEN_IMPLEMENTATION
 
 #ifdef _WIN32
-    AVEN_WIN32_FN(int) CopyFileA(
-        const char *fname,
-        const char *copy_fname,
-        int fail_exists
-    );
-    AVEN_WIN32_FN(void *) LoadLibraryA(const char *fname);
-    AVEN_WIN32_FN(void *) GetProcAddress(
-        void *handle,
-        const char *symbol
-    );
-    AVEN_WIN32_FN(int) FreeLibrary(void *handle);
-    
-    char aven_dl_suffix[] = "_aven_dl_loaded.dll";
-
     AVEN_FN void *aven_dl_open(AvenStr fname) {
+        AVEN_WIN32_FN(void *) LoadLibraryA(const char *fname);
+        AVEN_WIN32_FN(int) CopyFileA(
+            const char *fname,
+            const char *copy_fname,
+            int fail_exists
+        );
+
         assert(fname.len < AVEN_DL_MAX_PATH_LEN);
 
         if (fname.len < 5) {
@@ -45,6 +38,7 @@ AVEN_FN int aven_dl_close(void *handle);
             return NULL;
         }
 
+        char aven_dl_suffix[] = "_aven_dl_loaded.dll";
         char temp_buffer[
             AVEN_DL_MAX_PATH_LEN +
             sizeof(aven_dl_suffix)
@@ -65,10 +59,17 @@ AVEN_FN int aven_dl_close(void *handle);
     }
 
     AVEN_FN void *aven_dl_sym(void *handle, AvenStr symbol) {
+        AVEN_WIN32_FN(void *) GetProcAddress(
+            void *handle,
+            const char *symbol
+        );
+
         return GetProcAddress(handle, symbol.ptr);
     }
 
     AVEN_FN int aven_dl_close(void *handle) {
+        AVEN_WIN32_FN(int) FreeLibrary(void *handle);
+
         return FreeLibrary(handle);
     }
 #else
