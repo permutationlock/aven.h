@@ -36,6 +36,7 @@ typedef struct {
 
 typedef struct {
     Optional(AvenStr) compiler;
+    AvenStrSlice flags;
     AvenStr outflag;
 } AvenBuildCommonWindresOpts;
 
@@ -53,14 +54,14 @@ typedef struct {
     bool test;
 } AvenBuildCommonOpts;
 
-char aven_build_common_overview_cstr[] = "Aven C build system";
-AvenStr aven_build_common_overview = {
+static char aven_build_common_overview_cstr[] = "Aven C build system";
+static AvenStr aven_build_common_overview = {
     .ptr = aven_build_common_overview_cstr,
     .len = countof(aven_build_common_overview_cstr),
 };
 
-char aven_build_common_usage_cstr[] = "./build [options]";
-AvenStr aven_build_common_usage = {
+static char aven_build_common_usage_cstr[] = "./build [options]";
+static AvenStr aven_build_common_usage = {
     .ptr = aven_build_common_usage_cstr,
     .len = countof(aven_build_common_usage_cstr),
 };
@@ -244,6 +245,15 @@ AvenArg aven_build_common_args_data[] = {
 #else
             .data = { .arg_str = "-rcs" },
 #endif
+        },
+    },
+    {
+        .name = "-windresflags",
+        .description = "Archiver common flags",
+        .type = AVEN_ARG_TYPE_STRING,
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+            .data = { .arg_str = "" },
         },
     },
     {
@@ -580,10 +590,15 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
         opts.windres.compiler.value = aven_str_cstr(
             aven_arg_get_str(arg_slice, "-windres")
         );
+        opts.windres.flags = aven_str_split(
+            aven_str_cstr(aven_arg_get_str(arg_slice, "-windresflags")),
+            ' ',
+            arena
+        );
+        opts.windres.outflag = aven_str_cstr(
+            aven_arg_get_str(arg_slice, "-windresoutflag")
+        );
     }
-    opts.windres.outflag = aven_str_cstr(
-        aven_arg_get_str(arg_slice, "-windresoutflag")
-    );
 
     opts.obexts = aven_str_split(
         aven_str_cstr(aven_arg_get_str(arg_slice, "-obext")),
@@ -1119,6 +1134,12 @@ static inline AvenBuildStep aven_build_common_step_windres(
     assert(opts->windres.compiler.valid);
     slice_get(cmd_slice, i) = opts->windres.compiler.value;
     i += 1;
+
+    for (size_t j = 0; j < opts->windres.flags.len; j += 1) {
+        slice_get(cmd_slice, i) = slice_get(opts->windres.flags, j);
+        i += 1;
+    }
+
     slice_get(cmd_slice, i) = opts->windres.outflag;
     i += 1;
     slice_get(cmd_slice, i) = target_path;

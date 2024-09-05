@@ -40,10 +40,12 @@ If using the standalone `aven/time.h` portable timing header, then the libc
 
 When used as a header only library via the `AVEN_IMPLEMENTATION` macro,
 a small number of other C standard library headers will be included.
-For Windows targets, bespoke definitions are used in lieu of
-any Windows, MSVC, or MinGW platform specific headers[^3].
+For Windows targets a few C runtime headers are included (e.g. `io.h`), but
+bespoke declarations are used in lieu of the massive unmanageable Win32
+headers[^3].
 For Linux targets, some files require POSIX features to be enabled
-( `_POSIX_C_SOURCE >= 200112L`), and a few POSIX specific headers will be included. Linux
+( `_POSIX_C_SOURCE >= 200112L`), and a few POSIX specific headers will be
+included. Linux
 specific features are used where necessary, e.g. `sys/inotify.h` for directory
 watching and `/proc/self/exe` for exe path discovery; such functions simply
 return errors on non-Linux POSIX targets.

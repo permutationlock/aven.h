@@ -3,19 +3,14 @@
 #include <aven/str.h>
 #include <aven/test.h>
 
-#include <stdlib.h>
-
-AvenArena test_arena;
-
 typedef struct {
     char *expected;
     char *parts[8];
     size_t nparts;
 } TestAvenPathArgs;
 
-AvenTestResult test_aven_path(void *args) {
+AvenTestResult test_aven_path(AvenArena arena, void *args) {
     TestAvenPathArgs *pargs = args;
-    AvenArena arena = test_arena;
 
     AvenStr path = { 0 };
     switch (pargs->nparts) {
@@ -59,10 +54,12 @@ AvenTestResult test_aven_path(void *args) {
     if (!match) {
         char fmt[] = "expected \"%s\", found \"%s\"";
        
-        char *buffer = malloc(
+        char *buffer = aven_arena_alloc(
+            &arena,
             sizeof(fmt) +
-            path.len +
-            expected_path.len
+                path.len +
+                expected_path.len,
+            1
         );
 
         int len = sprintf(buffer, fmt, expected_path.ptr, path.ptr);
@@ -82,9 +79,8 @@ typedef struct {
     char *path;
 } TestAvenPathDirArgs;
 
-AvenTestResult test_aven_path_rel_dir(void *args) {
+AvenTestResult test_aven_path_rel_dir(AvenArena arena, void *args) {
     TestAvenPathDirArgs *pargs = args;
-    AvenArena arena = test_arena;
 
     AvenStr path = aven_path_rel_dir(aven_str_cstr(pargs->path), &arena);
     AvenStr expected_path = aven_str_cstr(pargs->expected);
@@ -93,10 +89,12 @@ AvenTestResult test_aven_path_rel_dir(void *args) {
     if (!match) {
         char fmt[] = "expected \"%s\", found \"%s\"";
        
-        char *buffer = malloc(
+        char *buffer = aven_arena_alloc(
+            &arena,
             sizeof(fmt) +
-            path.len +
-            expected_path.len
+                path.len +
+                expected_path.len,
+            1
         );
 
         int len = sprintf(buffer, fmt, expected_path.ptr, path.ptr);
@@ -117,9 +115,8 @@ typedef struct {
     char *path2;
 } TestAvenPathDiffArgs;
 
-AvenTestResult test_aven_path_rel_diff(void *args) {
+AvenTestResult test_aven_path_rel_diff(AvenArena arena, void *args) {
     TestAvenPathDiffArgs *pargs = args;
-    AvenArena arena = test_arena;
 
     AvenStr path = aven_path_rel_diff(
         aven_str_cstr(pargs->path1),
@@ -150,7 +147,7 @@ AvenTestResult test_aven_path_rel_diff(void *args) {
     return (AvenTestResult){ 0 };
 }
 
-int test_path(void) {
+int test_path(AvenArena arena) {
     AvenTestCase tcase_data[] = {
         {
             .desc = "aven_path empty path",
@@ -326,7 +323,7 @@ int test_path(void) {
         .len = countof(tcase_data),
     };
 
-    aven_test(tcases, __FILE__);
+    aven_test(tcases, __FILE__, arena);
 
     return 0;
 }

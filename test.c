@@ -14,15 +14,13 @@
 
 #define ARENA_SIZE (4096 * 16)
 
-AvenArena test_arena;
-
 int main(void) {
     aven_fs_utf8_mode();
     void *mem = malloc(ARENA_SIZE);
-    test_arena = aven_arena_init(mem, ARENA_SIZE);
+    AvenArena test_arena = aven_arena_init(mem, ARENA_SIZE);
 
-    test_path();
-    test_build_common();
+    test_path(test_arena);
+    test_build_common(test_arena);
 
     return 0;
 }
