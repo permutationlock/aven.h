@@ -22,6 +22,7 @@ typedef struct {
     AvenStr linker;
     AvenStr outflag;
     AvenStr libflag;
+    AvenStr winflag;
     AvenStr shrflag;
     AvenStrSlice flags;
     int flagsep;
@@ -434,6 +435,35 @@ AvenArg aven_build_common_args_data[] = {
         },
     },
     {
+        .name = "-ldwinflag",
+        .description = "Linker flag to link a graphical window application",
+        .type = AVEN_ARG_TYPE_STRING,
+        .value = {
+            .type = AVEN_ARG_TYPE_STRING,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_LDWINFLAG)
+            .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_LDWINFLAG },
+#elif defined(_WIN32)
+    #if defined(_MSC_VER)
+        #if defined(__clang__)
+            .data = { .arg_str = "-Wl/SUBSYSTEM:WINDOWS" },
+        #else 
+            .data = { .arg_str = "/SUBSYSTEM:WINDOWS" },
+        #endif
+    #elif defined(__GNUC__)
+        #if defined(__clang__)
+            .data = { .arg_str = "-Wl,--subsystem,windows" },
+        #else
+            .data = { .arg_str = "-mwindows" },
+        #endif
+    #else
+            .data = { .arg_str = "" },
+    #endif
+#else
+            .data = { .arg_str = "" },
+#endif
+        },
+    },
+    {
         .name = "-ldoutflag",
         .description = "Linker flag to specify output file",
         .type = AVEN_ARG_TYPE_STRING,
@@ -562,6 +592,7 @@ static inline AvenBuildCommonOpts aven_build_common_opts(
         aven_arg_get_str(arg_slice, "-ldoutflag")
     );
     opts.ld.libflag = aven_str_cstr(aven_arg_get_str(arg_slice, "-ldlibflag"));
+    opts.ld.winflag = aven_str_cstr(aven_arg_get_str(arg_slice, "-ldwinflag"));
     opts.ld.shrflag = aven_str_cstr(aven_arg_get_str(arg_slice, "-ldshrflag"));
     opts.ld.flagsep = aven_arg_get_int(arg_slice, "-ldflagsep");
     opts.ld.flags = aven_str_split(
@@ -808,20 +839,26 @@ static inline AvenBuildStep aven_build_common_step_cc(
     );
 }
 
+typedef enum {
+    AVEN_BUILD_COMMON_BIN_TYPE_CONSOLE,
+    AVEN_BUILD_COMMON_BIN_TYPE_WINDOW,
+    AVEN_BUILD_COMMON_BIN_TYPE_DLL,
+} AvenBuildCommonBinType;
+
 static AvenBuildStep aven_build_common_step_ld(
     AvenBuildCommonOpts *opts,
     AvenStrSlice linked_libs,
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
     AvenStr out_fname,
-    bool shared_lib,
+    AvenBuildCommonBinType bin_type,
     AvenArena *arena
 ) {
     assert(out_dir_step->out_path.valid);
     AvenStr out_dir_path = out_dir_step->out_path.value;
 
     AvenStrSlice exts = opts->exexts;
-    if (shared_lib) {
+    if (bin_type == AVEN_BUILD_COMMON_BIN_TYPE_DLL) {
         exts = opts->soexts;
     }
 
@@ -844,8 +881,17 @@ static AvenBuildStep aven_build_common_step_ld(
     if (opts->ld.flagsep > 0) {
         cmd_slice.len += 1 + linked_libs.len;
     }
-    if (shared_lib) {
-        cmd_slice.len += 1;
+    switch (bin_type) {
+        case AVEN_BUILD_COMMON_BIN_TYPE_WINDOW:
+            if (opts->ld.winflag.len > 0) {
+                cmd_slice.len += 1;
+            }
+            break;
+        case AVEN_BUILD_COMMON_BIN_TYPE_DLL:
+            cmd_slice.len += 1;
+            break;
+        default:
+            break;
     }
     cmd_slice.ptr = aven_arena_create_array(AvenStr, arena, cmd_slice.len);
 
@@ -858,9 +904,19 @@ static AvenBuildStep aven_build_common_step_ld(
         i += 1;
     }
 
-    if (shared_lib) {
-        slice_get(cmd_slice, i) = opts->ld.shrflag;
-        i += 1;
+    switch (bin_type) {
+        case AVEN_BUILD_COMMON_BIN_TYPE_WINDOW:
+            if (opts->ld.winflag.len > 0) {
+                slice_get(cmd_slice, i) = opts->ld.winflag;
+                i += 1;
+            }
+            break;
+        case AVEN_BUILD_COMMON_BIN_TYPE_DLL:
+            slice_get(cmd_slice, i) = opts->ld.shrflag;
+            i += 1;
+            break;
+        default:
+            break;
     }
 
     for (size_t j = 0; j < linked_libs.len; j += 1) {
@@ -934,6 +990,7 @@ static inline AvenBuildStep aven_build_common_step_ld_exe_ex(
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
     AvenStr out_fname,
+    bool graphical,
     AvenArena *arena
 ) {
     return aven_build_common_step_ld(
@@ -942,7 +999,8 @@ static inline AvenBuildStep aven_build_common_step_ld_exe_ex(
         obj_steps,
         out_dir_step,
         out_fname,
-        false,
+        graphical ? AVEN_BUILD_COMMON_BIN_TYPE_WINDOW :
+            AVEN_BUILD_COMMON_BIN_TYPE_CONSOLE,
         arena
     );
 }
@@ -961,7 +1019,7 @@ static inline AvenBuildStep aven_build_common_step_ld_so_ex(
         obj_steps,
         out_dir_step,
         out_fname,
-        true,
+        AVEN_BUILD_COMMON_BIN_TYPE_DLL,
         arena
     );
 }
@@ -971,6 +1029,7 @@ static inline AvenBuildStep aven_build_common_step_ld_exe(
     AvenBuildStepPtrSlice obj_steps,
     AvenBuildStep *out_dir_step,
     AvenStr out_fname,
+    bool graphical,
     AvenArena *arena
 ) {
     return aven_build_common_step_ld_exe_ex(
@@ -979,6 +1038,7 @@ static inline AvenBuildStep aven_build_common_step_ld_exe(
         obj_steps,
         out_dir_step,
         out_fname,
+        graphical,
         arena
     );
 }
@@ -1168,7 +1228,7 @@ static inline AvenBuildStep aven_build_common_step_windres(
     return windres_step;
 }
 
-static inline AvenBuildStep aven_build_common_step_cc_ld(
+static AvenBuildStep aven_build_common_step_cc_ld(
     AvenBuildCommonOpts *opts,
     AvenStrSlice includes,
     AvenStrSlice macros,
@@ -1176,7 +1236,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld(
     AvenBuildStepPtrSlice obj_steps,
     AvenStr src_path,
     AvenBuildStep *out_dir_step,
-    bool shared_lib,
+    AvenBuildCommonBinType bin_type,
     AvenArena *arena
 ) {
     AvenBuildStep *obj_step = aven_arena_create(AvenBuildStep, arena);
@@ -1218,7 +1278,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld(
         exe_obj_steps,
         out_dir_step,
         exe_fname,
-        shared_lib,
+        bin_type,
         arena
     );
 
@@ -1248,7 +1308,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_so_ex(
         obj_steps,
         src_path,
         out_dir_step,
-        true,
+        AVEN_BUILD_COMMON_BIN_TYPE_DLL,
         arena
     );
 }
@@ -1261,6 +1321,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_exe_ex(
     AvenBuildStepPtrSlice obj_steps,
     AvenStr src_path,
     AvenBuildStep *out_dir_step,
+    bool graphical,
     AvenArena *arena
 ) {
     return aven_build_common_step_cc_ld(
@@ -1271,7 +1332,8 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_exe_ex(
         obj_steps,
         src_path,
         out_dir_step,
-        false,
+        graphical ? AVEN_BUILD_COMMON_BIN_TYPE_WINDOW :
+            AVEN_BUILD_COMMON_BIN_TYPE_CONSOLE,
         arena
     );
 }
@@ -1298,6 +1360,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_exe(
     AvenBuildCommonOpts *opts,
     AvenStr src_path,
     AvenBuildStep *out_dir_step,
+    bool graphical,
     AvenArena *arena
 ) {
     return aven_build_common_step_cc_ld_exe_ex(
@@ -1308,6 +1371,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_exe(
         (AvenBuildStepPtrSlice){ 0 },
         src_path,
         out_dir_step,
+        graphical,
         arena
     );
 }
@@ -1348,6 +1412,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe_ex(
     AvenBuildStepPtrSlice obj_steps,
     AvenStr src_path,
     AvenBuildStep *work_dir_step,
+    bool graphical,
     AvenStrSlice args,
     AvenArena *arena
 ) {
@@ -1360,6 +1425,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe_ex(
         obj_steps,
         src_path,
         work_dir_step,
+        graphical,
         arena
     );
 
@@ -1374,6 +1440,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe(
     AvenBuildCommonOpts *opts,
     AvenStr src_path,
     AvenBuildStep *work_dir_step,
+    bool graphical,
     AvenStrSlice args,
     AvenArena *arena
 ) {
@@ -1385,6 +1452,7 @@ static inline AvenBuildStep aven_build_common_step_cc_ld_run_exe(
         (AvenBuildStepPtrSlice){ 0 },
         src_path,
         work_dir_step,
+        graphical,
         args,
         arena
     );

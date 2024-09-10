@@ -5,9 +5,9 @@
 
 #ifdef _WIN32
     typedef struct {
-        int64_t sec;
-        long nsec;
-    } AvenTimeSpec;
+        int64_t tv_sec;
+        long tv_nsec;
+    } AvenTimeInst;
 #else
     #include <time.h>
     typedef struct timespec AvenTimeInst;

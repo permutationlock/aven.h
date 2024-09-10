@@ -91,6 +91,7 @@ int main(int argc, char **argv) {
         test_obj_steps,
         aven_str("test.c"),
         &test_dir_step,
+        false,
         (AvenStrSlice){ 0 },
         &arena
     );
