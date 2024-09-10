@@ -290,7 +290,7 @@ AVEN_FN AvenPathResult aven_path_exe(AvenArena *arena) {
     return (AvenPathResult){ .payload = path };
 #else
     (void)arena;
-    return (AvenStrResult){ .error = AVEN_PATH_EXE_ERROR_UNSUPPORTED };
+    return (AvenPathResult){ .error = AVEN_PATH_EXE_ERROR_UNSUPPORTED };
 #endif
 }
 

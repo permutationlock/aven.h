@@ -254,7 +254,11 @@ AvenArg aven_build_common_args_data[] = {
         .type = AVEN_ARG_TYPE_STRING,
         .value = {
             .type = AVEN_ARG_TYPE_STRING,
+#if defined(AVEN_BUILD_COMMON_DEFAULT_WINDRESFLAGS)
+            .data = { .arg_str = AVEN_BUILD_COMMON_DEFAULT_WINDRESFLAGS },
+#else
             .data = { .arg_str = "" },
+#endif
         },
     },
     {
